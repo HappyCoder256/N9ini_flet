@@ -1,0 +1,43 @@
+name: Build Linux Flet Client
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y clang libgtk-3-dev \
+            libmpv-dev mpv \
+            libgstreamer1.0-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-libav
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.29.2
+
+      - name: Build Linux client
+        run: |
+          cd client
+          flutter build linux --release
+          mv build/linux/x64/release/bundle build/linux/x64/release/flet
+          tar -czvf flet-linux-amd64.tar.gz -C build/linux/x64/release flet
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flet-linux-client
+          path: client/flet-linux-amd64.tar.gz
