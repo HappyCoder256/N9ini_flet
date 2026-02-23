@@ -18,11 +18,11 @@ jobs:
         with:
           ref: n9ini_desktop_client
 
-      # 2️⃣ Set up Flutter
+      # 2️⃣ Set up Flutter 3.29.2
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: 3.29.2
 
       # 3️⃣ Build Flutter Web
       - name: Build Flutter Web
