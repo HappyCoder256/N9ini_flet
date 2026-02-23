@@ -1,0 +1,40 @@
+name: Build Flet Web
+
+# Trigger manually or on push to n9ini_desktop_client branch
+on:
+  workflow_dispatch:   # allows manual run
+  push:
+    branches:
+      - n9ini_desktop_client
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout the repo (n9ini_desktop_client branch)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: n9ini_desktop_client
+
+      # 2️⃣ Set up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # 3️⃣ Build Flutter Web
+      - name: Build Flutter Web
+        run: |
+          cd client
+          flutter build web --release
+          # Optional: remove CanvasKit to reduce size
+          rm -rf build/web/canvaskit
+
+      # 4️⃣ Upload the compiled web folder as artifact
+      - name: Upload compiled web folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: flet-web-compiled
+          path: client/build/web
