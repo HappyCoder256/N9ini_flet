@@ -1,0 +1,38 @@
+name: Build Flet Web
+
+# Trigger manually or on tag push
+on:
+  workflow_dispatch:   # allows you to run it manually
+  push:
+    tags:
+      - "v*"          # optional, run on version tags
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout the repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Set up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # 3️⃣ Build Flutter Web
+      - name: Build Flutter Web
+        run: |
+          cd client
+          flutter build web --release
+          # Optional: remove CanvasKit for smaller size
+          rm -rf build/web/canvaskit
+
+      # 4️⃣ Upload the compiled web folder as an artifact
+      - name: Upload compiled web folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: flet-web-compiled
+          path: client/build/web
