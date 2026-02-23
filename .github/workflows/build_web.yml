@@ -28,7 +28,7 @@ jobs:
       - name: Build Flutter Web
         run: |
           cd client
-          flutter build web --release
+          flutter build web --release --no-wasm-dry-run
           # Optional: remove CanvasKit to reduce size
           rm -rf build/web/canvaskit
 
