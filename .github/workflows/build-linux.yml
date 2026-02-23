@@ -1,51 +1,38 @@
-name: Build Linux Flet Client
+name: Build Flet Web
 
+# Trigger manually or on tag push
 on:
-  workflow_dispatch:
+  workflow_dispatch:   # allows you to run it manually
   push:
-    branches: [ n9ini_desktop_client ]  # <-- trigger only on this branch
+    tags:
+      - "v*"          # optional, run on version tags
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-22.04
+  build-web:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      # 1️⃣ Checkout the repo
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: n9ini_desktop_client   # <-- check out this branch
 
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            clang \
-            libgtk-3-dev \
-            libunwind-dev \
-            libgstreamer1.0-dev \
-            libgstreamer-plugins-base1.0-dev \
-            libgstreamer-plugins-bad1.0-dev \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
-            gstreamer1.0-plugins-bad \
-            gstreamer1.0-libav \
-            mpv \
-            libmpv-dev
-
-      - name: Setup Flutter
+      # 2️⃣ Set up Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.29.2
+          channel: stable
 
-      - name: Build Linux client
+      # 3️⃣ Build Flutter Web
+      - name: Build Flutter Web
         run: |
           cd client
-          flutter build linux --release
-          mv build/linux/x64/release/bundle build/linux/x64/release/flet
-          tar -czvf flet-linux-amd64.tar.gz -C build/linux/x64/release flet
+          flutter build web --release
+          # Optional: remove CanvasKit for smaller size
+          rm -rf build/web/canvaskit
 
-      - name: Upload artifact
+      # 4️⃣ Upload the compiled web folder as an artifact
+      - name: Upload compiled web folder
         uses: actions/upload-artifact@v4
         with:
-          name: flet-linux-client
-          path: client/flet-linux-amd64.tar.gz
+          name: flet-web-compiled
+          path: client/build/web
