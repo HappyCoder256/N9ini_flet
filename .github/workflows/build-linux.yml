@@ -3,7 +3,7 @@ name: Build Linux Flet Client
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ n9ini_desktop_client ]  # <-- trigger only on this branch
 
 jobs:
   build-linux:
@@ -12,13 +12,17 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: n9ini_desktop_client   # <-- check out this branch
 
       - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y clang libgtk-3-dev \
-            libmpv-dev mpv \
+          sudo apt install -y \
+            libunwind-dev \
             libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
             gstreamer1.0-plugins-bad \
