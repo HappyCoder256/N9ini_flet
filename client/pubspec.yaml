@@ -94,7 +94,7 @@ dependencies:
       ref: 0.1.0
       path: src/flutter/flet_flashlight
   
-flet_carousel_slider:
+  flet_carousel_slider:
     git:
       url: https://github.com/HappyCoder256/flet-carousel-slider.git
       ref: main
