@@ -1,0 +1,47 @@
+name: Build Flet Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - n9ini_desktop_client
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    steps:
+      # 1️⃣ Checkout the correct branch
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: n9ini_desktop_client
+
+      # 2️⃣ Setup Flutter 3.29.2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.29.2
+
+      # 3️⃣ Enable Windows desktop
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      # 4️⃣ Get dependencies
+      - name: Flutter Pub Get
+        run: |
+          cd client
+          flutter pub get
+
+      # 5️⃣ Build Windows Release
+      - name: Build Windows App
+        run: |
+          cd client
+          flutter build windows --release
+
+      # 6️⃣ Upload compiled Windows folder
+      - name: Upload Windows Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flet-windows-build
+          path: client/build/windows/x64/runner/Release
