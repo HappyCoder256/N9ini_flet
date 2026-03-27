@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:collection/collection.dart';
 import 'package:flet/flet.dart';
 import 'package:flutter/material.dart';
@@ -8,8 +10,17 @@ import "file_utils_web.dart" if (dart.library.io) 'file_utils_io.dart';
 
 // ✅ Kept old signature: accepts Control + key instead of raw dynamic
 List<Media> parseVideoMedia(Control control, String attrName) {
-  final playlist = control.attrList(attrName);
-  if (playlist == null) return [];
+  final rawJson = control.attrString(attrName, null);
+  if (rawJson == null || rawJson.isEmpty) return [];
+
+  dynamic playlist;
+  try {
+    playlist = jsonDecode(rawJson);
+  } catch (_) {
+    return [];
+  }
+
+  if (playlist is! List) return [];
 
   return playlist
       .map((item) => _parseSingleMedia(item))
@@ -17,7 +28,7 @@ List<Media> parseVideoMedia(Control control, String attrName) {
       .toList();
 }
 
-// ✅ Internal helper (was parseVideoMedia in new utils)
+// ✅ Internal helper
 Media? _parseSingleMedia(dynamic value) {
   if (value == null || value["resource"] == null) return null;
 
@@ -35,11 +46,19 @@ Media? _parseSingleMedia(dynamic value) {
 // ✅ Kept old signature: accepts ThemeData, Control + key
 Map<String, dynamic>? parseSubtitleConfiguration(
     ThemeData theme, Control control, String attrName) {
-  final value =control.attrString(attrName, "");
-  if (value == null || value.isEmpty) return null;
+  final rawJson = control.attrString(attrName, null);
+  if (rawJson == null || rawJson.isEmpty) return null;
 
-  // ✅ Fix: don't pass TextStyle as default — parse it separately
-  TextStyle defaultStyle = const TextStyle(
+  // ✅ Fix: decode JSON string to Map first
+  Map<String, dynamic> value;
+  try {
+    value = jsonDecode(rawJson);
+  } catch (_) {
+    return null;
+  }
+
+  // ✅ Fix: parseTextStyle in 0.28.3 takes (dynamic, ThemeData, TextStyle) — pass default as 3rd arg
+  const TextStyle defaultStyle = TextStyle(
       height: 1.4,
       fontSize: 32.0,
       letterSpacing: 0.0,
@@ -48,16 +67,14 @@ Map<String, dynamic>? parseSubtitleConfiguration(
       fontWeight: FontWeight.normal,
       backgroundColor: Color(0xaa000000));
 
-  TextStyle? parsedStyle = parseTextStyle(value["text_style"], theme);
-  
   final subtitleViewConfiguration = SubtitleViewConfiguration(
-    style: parsedStyle ?? defaultStyle,
+    style: parseTextStyle(value["text_style"], theme, defaultStyle)!,
     visible: parseBool(value["visible"], true)!,
     textScaler: TextScaler.linear(parseDouble(value["text_scale_factor"], 1)!),
     textAlign: parseTextAlign(value["text_align"], TextAlign.center)!,
-    padding: parsePadding(
-        value["padding"],
-        const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 24.0))!,
+    // ✅ Fix: edgeInsetsFromJson is the correct 0.28.3 function (not parsePadding)
+    padding: edgeInsetsFromJson(value["padding"]) ??
+        const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 24.0),
   );
 
   return {
@@ -66,13 +83,6 @@ Map<String, dynamic>? parseSubtitleConfiguration(
     "language": value["language"],
     "subtitleViewConfiguration": subtitleViewConfiguration,
   };
-
-  // return {
-  //   "src": value["src"],
-  //   "title": value["title"],
-  //   "language": value["language"],
-  //   "subtitleViewConfiguration": subtitleViewConfiguration,
-  // };
 }
 
 bool _isUrl(String value) {
@@ -94,7 +104,6 @@ SubtitleTrack? parseSubtitleTrack(
     uri = true;
     resolvedSrc = src;
   } else {
-    // Non-URL: on non-web platforms, try reading it as a file path
     String? fileContents;
     if (!isWebPlatform()) {
       fileContents = readFileAsStringIfExists(src);
@@ -116,16 +125,25 @@ SubtitleTrack? parseSubtitleTrack(
 VideoControllerConfiguration? parseControllerConfiguration(
     Control control, String attrName,
     [VideoControllerConfiguration? defaultValue]) {
-  final value = control.attrString(attrName, null);
-  if (value == null) return defaultValue;
+  final rawJson = control.attrString(attrName, null);
+  if (rawJson == null || rawJson.isEmpty) return defaultValue;
+
+  // ✅ Fix: decode JSON string to Map first
+  Map<String, dynamic> value;
+  try {
+    value = jsonDecode(rawJson);
+  } catch (_) {
+    return defaultValue;
+  }
 
   return VideoControllerConfiguration(
-    vo: value["output_driver"],
-    hwdec: value["hardware_decoding_api"],
+    vo: value["output_driver"] as String?,
+    hwdec: value["hardware_decoding_api"] as String?,
     enableHardwareAcceleration:
         parseBool(value["enable_hardware_acceleration"], true)!,
-    width: value["width"],
-    height: value["height"],
+    // ✅ Fix: use parseInt/parseDouble — raw map values are dynamic, not int
+    width: parseInt(value["width"]),
+    height: parseInt(value["height"]),
     scale: parseDouble(value["scale"], 1.0)!,
   );
 }
