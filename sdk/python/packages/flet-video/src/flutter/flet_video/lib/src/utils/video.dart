@@ -106,7 +106,7 @@ SubtitleTrack? parseSubtitleTrack(
 VideoControllerConfiguration? parseControllerConfiguration(
     Control control, String attrName,
     [VideoControllerConfiguration? defaultValue]) {
-  final value = control.attrMap(attrName);
+  final value = control.attrString(attrName, null);
   if (value == null) return defaultValue;
 
   return VideoControllerConfiguration(
