@@ -35,7 +35,7 @@ Media? _parseSingleMedia(dynamic value) {
 // ✅ Kept old signature: accepts ThemeData, Control + key
 Map<String, dynamic>? parseSubtitleConfiguration(
     ThemeData theme, Control control, String attrName) {
-  final value = control.attrMap(attrName);
+  final value =control.attrString(attrName, null);
   if (value == null) return null;
 
   final subtitleViewConfiguration = SubtitleViewConfiguration(
@@ -53,8 +53,8 @@ Map<String, dynamic>? parseSubtitleConfiguration(
     visible: parseBool(value["visible"], true)!,
     textScaler: TextScaler.linear(parseDouble(value["text_scale_factor"], 1)!),
     textAlign: parseTextAlign(value["text_align"], TextAlign.center)!,
-    padding: parsePadding(
-        value["padding"], const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 24.0))!,
+    padding: edgeInsetsFromJson(json["padding"]) ??
+        const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 24.0),
   );
 
   return {
