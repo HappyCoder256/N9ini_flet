@@ -35,8 +35,8 @@ Media? _parseSingleMedia(dynamic value) {
 // ✅ Kept old signature: accepts ThemeData, Control + key
 Map<String, dynamic>? parseSubtitleConfiguration(
     ThemeData theme, Control control, String attrName) {
-  final value =control.attrString(attrName, null);
-  if (value == null) return null;
+  final value =control.attrString(attrName, "");
+  if (value == null || value.isEmpty) return null;
 
   final subtitleViewConfiguration = SubtitleViewConfiguration(
     style: parseTextStyle(
