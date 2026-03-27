@@ -160,19 +160,28 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       Map<String, dynamic>? subtitleConfiguration = parseSubtitleConfiguration(
           Theme.of(context), widget.control, "subtitleConfiguration");
 
-      if (subtitleConfiguration?["src"] != null) {
-        try {
-          var assetSrc = getAssetSrc(subtitleConfiguration?["src"],
-              pageArgs.pageUri!, pageArgs.assetsDir);
-          subtitleTrack = parseSubtitleTrack(
-              assetSrc,
-              subtitleConfiguration?["title"],
-              subtitleConfiguration?["language"]);
-        } catch (ex) {
-          debugPrint("Video subtitleTrack error: $ex");
-          subtitleTrack = SubtitleTrack.no();
-        }
+    if (subtitleConfiguration?["src"] != null) {
+      try {
+        final assetSrc = getAssetSrc(
+          subtitleConfiguration?["src"],
+          pageArgs.pageUri!,
+          pageArgs.assetsDir,
+        );
+    
+        // Convert AssetSrc → String (universal handling)
+        final String? srcString = assetSrc.uri?.toString();
+    
+        subtitleTrack = parseSubtitleTrack(
+          srcString,
+          subtitleConfiguration?["title"],
+          subtitleConfiguration?["language"],
+        );
+    
+      } catch (ex) {
+        _onError("Video subtitleTrack error: ${ex.toString()}");
+        subtitleTrack = SubtitleTrack.no();
       }
+    }
 
       SubtitleViewConfiguration? subtitleViewConfiguration =
           subtitleConfiguration?["subtitleViewConfiguration"];
