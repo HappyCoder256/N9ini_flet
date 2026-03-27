@@ -155,11 +155,8 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       if (subtitleConfiguration?["src"] != null) {
         try {
           // ✅ Fix: getAssetSrc returns a String in 0.28.3, not an AssetSrc object
-          final String srcString = getAssetSrc(
-            subtitleConfiguration!["src"],
-            pageArgs.pageUri!,
-            pageArgs.assetsDir,
-          );
+          var assetSrc = getAssetSrc(subtitleConfiguration?["src"],
+              pageArgs.pageUri!, pageArgs.assetsDir);
 
           subtitleTrack = parseSubtitleTrack(
             srcString,
