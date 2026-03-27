@@ -68,7 +68,7 @@ Map<String, dynamic>? parseSubtitleConfiguration(
       backgroundColor: Color(0xaa000000));
 
   final subtitleViewConfiguration = SubtitleViewConfiguration(
-    style: parseTextStyle(value["text_style"], theme, defaultStyle)!,
+    style: parseTextStyle(theme, value["text_style"], defaultStyle)!,
     visible: parseBool(value["visible"], true)!,
     textScaler: TextScaler.linear(parseDouble(value["text_scale_factor"], 1)!),
     textAlign: parseTextAlign(value["text_align"], TextAlign.center)!,
