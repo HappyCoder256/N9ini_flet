@@ -6,8 +6,20 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import "file_utils_web.dart" if (dart.library.io) 'file_utils_io.dart';
 
-Media? parseVideoMedia(dynamic value, [Media? defaultValue]) {
-  if (value == null || value["resource"] == null) return defaultValue;
+// ✅ Kept old signature: accepts Control + key instead of raw dynamic
+List<Media> parseVideoMedia(Control control, String attrName) {
+  final playlist = control.attrList(attrName);
+  if (playlist == null) return [];
+
+  return playlist
+      .map((item) => _parseSingleMedia(item))
+      .whereType<Media>()
+      .toList();
+}
+
+// ✅ Internal helper (was parseVideoMedia in new utils)
+Media? _parseSingleMedia(dynamic value) {
+  if (value == null || value["resource"] == null) return null;
 
   final extras = (value["extras"] as Map?)?.map(
     (key, val) => MapEntry(key.toString(), val.toString()),
@@ -20,23 +32,13 @@ Media? parseVideoMedia(dynamic value, [Media? defaultValue]) {
   return Media(value["resource"], extras: extras, httpHeaders: httpHeaders);
 }
 
-List<Media>? parseVideoMedias(dynamic value, [List<Media>? defaultValue]) {
-  if (value == null) return defaultValue;
+// ✅ Kept old signature: accepts ThemeData, Control + key
+Map<String, dynamic>? parseSubtitleConfiguration(
+    ThemeData theme, Control control, String attrName) {
+  final value = control.attrMap(attrName);
+  if (value == null) return null;
 
-  if (value is List) {
-    return value.map((e) => parseVideoMedia(e)).nonNulls.toList();
-  }
-
-  final media = parseVideoMedia(value);
-  return media != null ? [media] : defaultValue;
-}
-
-SubtitleViewConfiguration? parseSubtitleConfiguration(
-    dynamic value, ThemeData theme,
-    [SubtitleViewConfiguration? defaultValue]) {
-  if (value == null) return defaultValue;
-
-  return SubtitleViewConfiguration(
+  final subtitleViewConfiguration = SubtitleViewConfiguration(
     style: parseTextStyle(
         value["text_style"],
         theme,
@@ -54,68 +56,59 @@ SubtitleViewConfiguration? parseSubtitleConfiguration(
     padding: parsePadding(
         value["padding"], const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 24.0))!,
   );
+
+  return {
+    "src": value["src"],
+    "title": value["title"],
+    "language": value["language"],
+    "subtitleViewConfiguration": subtitleViewConfiguration,
+  };
 }
 
-bool isUrl(String value) {
+bool _isUrl(String value) {
   final urlPattern = RegExp(r'^(http:\/\/|https:\/\/|www\.)');
   return urlPattern.hasMatch(value);
 }
 
+// ✅ Kept old signature: accepts (assetSrc, title, language)
 SubtitleTrack? parseSubtitleTrack(
-  dynamic value,
-  BuildContext context, [
-  SubtitleTrack? defaultValue,
-]) {
-  if (value == null) return defaultValue;
-
-  String src;
-  final String rawSrc = value["src"] as String;
-  if (rawSrc == "none") return SubtitleTrack.no();
-  if (rawSrc == "auto") return SubtitleTrack.auto();
+    String? src, String? title, String? language) {
+  if (src == null) return null;
+  if (src == "none") return SubtitleTrack.no();
+  if (src == "auto") return SubtitleTrack.auto();
 
   bool uri = false;
+  String resolvedSrc = src;
 
-  if (isUrl(rawSrc)) {
+  if (_isUrl(src)) {
     uri = true;
-    src = rawSrc;
+    resolvedSrc = src;
   } else {
     // Non-URL: on non-web platforms, try reading it as a file path
     String? fileContents;
     if (!isWebPlatform()) {
-      // todo: add support for relative paths to assets-dir
-      fileContents = readFileAsStringIfExists(rawSrc);
+      fileContents = readFileAsStringIfExists(src);
     }
-
-    // If reading succeeded, use the file’s contents;
-    // otherwise assume rawSrc is already subtitle text
-    src = fileContents ?? rawSrc;
+    resolvedSrc = fileContents ?? src;
     uri = false;
   }
 
   return SubtitleTrack(
-    src,
-    value["title"],
-    value["language"],
-    channelscount: parseInt(value["channels_count"]),
-    channels: value["channels"],
-    samplerate: parseInt(value["sample_rate"]),
-    fps: parseDouble(value["fps"]),
-    bitrate: parseInt(value["bitrate"]),
-    rotate: parseInt(value["rotate"]),
-    par: parseDouble(value["par"]),
-    audiochannels: parseInt(value["audio_channels"]),
-    albumart: parseBool(value["album_art"]),
-    codec: value["codec"],
-    decoder: value["decoder"],
+    resolvedSrc,
+    title,
+    language,
     data: !uri,
-    // true when providing raw subtitle text
-    uri: uri, // true when providing a URL
+    uri: uri,
   );
 }
 
-VideoControllerConfiguration? parseControllerConfiguration(dynamic value,
+// ✅ Kept old signature: accepts Control + key
+VideoControllerConfiguration? parseControllerConfiguration(
+    Control control, String attrName,
     [VideoControllerConfiguration? defaultValue]) {
+  final value = control.attrMap(attrName);
   if (value == null) return defaultValue;
+
   return VideoControllerConfiguration(
     vo: value["output_driver"],
     hwdec: value["hardware_decoding_api"],
@@ -127,6 +120,7 @@ VideoControllerConfiguration? parseControllerConfiguration(dynamic value,
   );
 }
 
+// ✅ Unchanged — no format dependency
 PlaylistMode? parsePlaylistMode(String? value, [PlaylistMode? defaultValue]) {
   if (value == null) return defaultValue;
   return PlaylistMode.values.firstWhereOrNull(
