@@ -159,7 +159,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
               pageArgs.pageUri!, pageArgs.assetsDir);
 
           subtitleTrack = parseSubtitleTrack(
-            srcString,
+            assetSrc,
             subtitleConfiguration["title"],
             subtitleConfiguration["language"],
           );
@@ -175,7 +175,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       }
 
       SubtitleViewConfiguration? subtitleViewConfiguration =
-          subtitleConfiguration?["subtitleViewConfiguration"];
+          subtitleConfiguration?["subtitleViewConfiguration"] as SubtitleViewConfiguration?;
 
       double? volume = widget.control.attrDouble("volume");
       double? pitch = widget.control.attrDouble("pitch");
