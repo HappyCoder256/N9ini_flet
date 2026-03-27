@@ -100,34 +100,16 @@ bool _isUrl(String value) {
 }
 
 // ✅ Kept old signature: accepts (assetSrc, title, language)
-SubtitleTrack? parseSubtitleTrack(
-    String? src, String? title, String? language) {
-  if (src == null) return null;
-  if (src == "none") return SubtitleTrack.no();
-  if (src == "auto") return SubtitleTrack.auto();
-
-  bool uri = false;
-  String resolvedSrc = src;
-
-  if (_isUrl(src)) {
-    uri = true;
-    resolvedSrc = src;
+SubtitleTrack parseSubtitleTrack(
+    AssetSrc assetSrc, String? title, String? language) {
+  if (assetSrc.isFile) {
+    String filePath = assetSrc.path;
+    File file = File(filePath);
+    String content = file.readAsStringSync();
+    return SubtitleTrack.data(content, title: title, language: language);
   } else {
-    String? fileContents;
-    if (!isWebPlatform()) {
-      fileContents = readFileAsStringIfExists(src);
-    }
-    resolvedSrc = fileContents ?? src;
-    uri = false;
+    return SubtitleTrack.uri(assetSrc.path, title: title, language: language);
   }
-
-  return SubtitleTrack(
-    resolvedSrc,
-    title,
-    language,
-    data: !uri,
-    uri: uri,
-  );
 }
 
 // ✅ Kept old signature: accepts Control + key
