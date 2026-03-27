@@ -38,23 +38,26 @@ Map<String, dynamic>? parseSubtitleConfiguration(
   final value =control.attrString(attrName, "");
   if (value == null || value.isEmpty) return null;
 
+  // ✅ Fix: don't pass TextStyle as default — parse it separately
+  TextStyle defaultStyle = const TextStyle(
+      height: 1.4,
+      fontSize: 32.0,
+      letterSpacing: 0.0,
+      wordSpacing: 0.0,
+      color: Color(0xffffffff),
+      fontWeight: FontWeight.normal,
+      backgroundColor: Color(0xaa000000));
+
+  TextStyle? parsedStyle = parseTextStyle(value["text_style"], theme);
+  
   final subtitleViewConfiguration = SubtitleViewConfiguration(
-    style: parseTextStyle(
-        value["text_style"],
-        theme,
-        const TextStyle(
-            height: 1.4,
-            fontSize: 32.0,
-            letterSpacing: 0.0,
-            wordSpacing: 0.0,
-            color: Color(0xffffffff),
-            fontWeight: FontWeight.normal,
-            backgroundColor: Color(0xaa000000)))!,
+    style: parsedStyle ?? defaultStyle,
     visible: parseBool(value["visible"], true)!,
     textScaler: TextScaler.linear(parseDouble(value["text_scale_factor"], 1)!),
     textAlign: parseTextAlign(value["text_align"], TextAlign.center)!,
-    padding: edgeInsetsFromJson(json["padding"]) ??
-        const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 24.0),
+    padding: parsePadding(
+        value["padding"],
+        const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 24.0))!,
   );
 
   return {
@@ -63,6 +66,13 @@ Map<String, dynamic>? parseSubtitleConfiguration(
     "language": value["language"],
     "subtitleViewConfiguration": subtitleViewConfiguration,
   };
+
+  // return {
+  //   "src": value["src"],
+  //   "title": value["title"],
+  //   "language": value["language"],
+  //   "subtitleViewConfiguration": subtitleViewConfiguration,
+  // };
 }
 
 bool _isUrl(String value) {
