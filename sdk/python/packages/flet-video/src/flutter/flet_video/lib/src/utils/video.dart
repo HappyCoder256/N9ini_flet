@@ -58,17 +58,26 @@ Map<String, dynamic>? parseSubtitleConfiguration(
   }
 
   // ✅ Fix: parseTextStyle in 0.28.3 takes (dynamic, ThemeData, TextStyle) — pass default as 3rd arg
-  const TextStyle defaultStyle = TextStyle(
-      height: 1.4,
-      fontSize: 32.0,
-      letterSpacing: 0.0,
-      wordSpacing: 0.0,
-      color: Color(0xffffffff),
-      fontWeight: FontWeight.normal,
-      backgroundColor: Color(0xaa000000));
+  // const TextStyle defaultStyle = TextStyle(
+  //     height: 1.4,
+  //     fontSize: 32.0,
+  //     letterSpacing: 0.0,
+  //     wordSpacing: 0.0,
+  //     color: Color(0xffffffff),
+  //     fontWeight: FontWeight.normal,
+  //     backgroundColor: Color(0xaa000000));
 
   final subtitleViewConfiguration = SubtitleViewConfiguration(
-    style: parseTextStyle(theme, value["text_style"], defaultStyle)!,
+    style: json["text_style"] != null
+        ? textStyleFromJson(theme, json["text_style"])!
+        : const TextStyle(
+            height: 1.4,
+            fontSize: 32.0,
+            letterSpacing: 0.0,
+            wordSpacing: 0.0,
+            color: Color(0xffffffff),
+            fontWeight: FontWeight.normal,
+            backgroundColor: Color(0xaa000000)),
     visible: parseBool(value["visible"], true)!,
     textScaler: TextScaler.linear(parseDouble(value["text_scale_factor"], 1)!),
     textAlign: parseTextAlign(value["text_align"], TextAlign.center)!,
