@@ -25,10 +25,8 @@ class VideoControl extends StatefulWidget {
 }
 
 class _VideoControlState extends State<VideoControl> with FletStoreMixin {
-  // ✅ Added from new: GlobalKey to support programmatic fullscreen via videoState
   GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
 
-  // ✅ Added from new: typed StreamSubscriptions for proper cleanup
   StreamSubscription<String?>? _errorSub;
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<Playlist>? _playlistSub;
@@ -52,7 +50,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
   late final controller =
       VideoController(player, configuration: videoControllerConfiguration);
 
-  // ✅ Added from new: apply mpv properties from configuration map
   Future<void> _applyMpvProperties() async {
     final cfg = widget.control.attrString("configuration");
     if (cfg == null) return;
@@ -84,7 +81,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
   void initState() {
     super.initState();
 
-    // ✅ Added from new: apply mpv properties before opening playlist
     () async {
       await _applyMpvProperties();
       await player.open(
@@ -92,8 +88,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
           play: widget.control.attrBool("autoPlay", false)!);
     }();
 
-    // ✅ Added from new: stream subscriptions set up once in initState
-    // instead of re-registering on every build()
     if (widget.control.attrBool("onError", false)!) {
       _errorSub = player.stream.error.listen((message) {
         debugPrint("Video onError: $message");
@@ -121,7 +115,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
 
   @override
   void dispose() {
-    // ✅ Added from new: properly cancel subscriptions before disposing player
     _errorSub?.cancel();
     _completedSub?.cancel();
     _playlistSub?.cancel();
@@ -129,7 +122,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     super.dispose();
   }
 
-  // ✅ Added from new: fullscreen handlers that also sync state back to Python
   Future<void> _handleEnterFullscreen() async {
     widget.control.state["_fullscreen"] = true;
     if (widget.control.attrBool("onEnterFullscreen", false)!) {
@@ -160,28 +152,30 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       Map<String, dynamic>? subtitleConfiguration = parseSubtitleConfiguration(
           Theme.of(context), widget.control, "subtitleConfiguration");
 
-    if (subtitleConfiguration?["src"] != null) {
-      try {
-        final assetSrc = getAssetSrc(
-          subtitleConfiguration?["src"],
-          pageArgs.pageUri!,
-          pageArgs.assetsDir,
-        );
-    
-        // Convert AssetSrc → String (universal handling)
-        final String? srcString = assetSrc.uri?.toString();
-    
-        subtitleTrack = parseSubtitleTrack(
-          srcString,
-          subtitleConfiguration?["title"],
-          subtitleConfiguration?["language"],
-        );
-    
-      } catch (ex) {
-        _onError("Video subtitleTrack error: ${ex.toString()}");
-        subtitleTrack = SubtitleTrack.no();
+      if (subtitleConfiguration?["src"] != null) {
+        try {
+          // ✅ Fix: getAssetSrc returns a String in 0.28.3, not an AssetSrc object
+          final String srcString = getAssetSrc(
+            subtitleConfiguration!["src"],
+            pageArgs.pageUri!,
+            pageArgs.assetsDir,
+          );
+
+          subtitleTrack = parseSubtitleTrack(
+            srcString,
+            subtitleConfiguration["title"],
+            subtitleConfiguration["language"],
+          );
+        } catch (ex) {
+          // ✅ Fix: _onError doesn't exist — log and trigger event inline
+          debugPrint("Video subtitleTrack error: ${ex.toString()}");
+          if (widget.control.attrBool("onError", false)!) {
+            widget.backend.triggerControlEvent(
+                widget.control.id, "error", ex.toString());
+          }
+          subtitleTrack = SubtitleTrack.no();
+        }
       }
-    }
 
       SubtitleViewConfiguration? subtitleViewConfiguration =
           subtitleConfiguration?["subtitleViewConfiguration"];
@@ -191,7 +185,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       double? playbackRate = widget.control.attrDouble("playbackRate");
       bool? shufflePlaylist = widget.control.attrBool("shufflePlaylist");
       bool showControls = widget.control.attrBool("showControls", true)!;
-      // ✅ Added from new: fullscreen sync support
       bool fullscreen = widget.control.attrBool("fullscreen", false)!;
 
       PlaylistMode? playlistMode = PlaylistMode.values.firstWhereOrNull((e) =>
@@ -206,12 +199,10 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
           widget.control.state["playlistMode"];
       final SubtitleTrack? prevSubtitleTrack =
           widget.control.state["subtitleTrack"];
-      // ✅ Added from new: track previous fullscreen state
       final bool prevFullscreen =
           widget.control.state["_fullscreen"] ?? false;
 
       Video video = Video(
-        // ✅ Added from new: GlobalKey for programmatic fullscreen control
         key: _videoKey,
         controller: controller,
         wakelock: widget.control.attrBool("wakelock", true)!,
@@ -229,7 +220,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         fill: parseColor(Theme.of(context),
                 widget.control.attrString("fillColor", "")!) ??
             const Color(0xFF000000),
-        // ✅ Changed from new: unified fullscreen handlers with state sync
         onEnterFullscreen: _handleEnterFullscreen,
         onExitFullscreen: _handleExitFullscreen,
       );
@@ -274,7 +264,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
           await player.setSubtitleTrack(subtitleTrack);
         }
 
-        // ✅ Added from new: programmatic fullscreen via videoState key
         if (fullscreen != prevFullscreen) {
           widget.control.state["_fullscreen"] = fullscreen;
           WidgetsBinding.instance.addPostFrameCallback((_) {
