@@ -36,7 +36,7 @@ void main([List<String>? args]) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // --FAT_CLIENT_START--
-  // flet_audio.ensureInitialized();
+  flet_audio.ensureInitialized();
   flet_video.ensureInitialized();
   // --FAT_CLIENT_END--
   flet_audio_recorder.ensureInitialized();
@@ -108,7 +108,7 @@ void main([List<String>? args]) async {
     showAppStartupScreen: true,
     createControlFactories: [
 // --FAT_CLIENT_START--
-      // flet_audio.createControl,
+      flet_audio.createControl,
       flet_video.createControl,
 // --FAT_CLIENT_END--
       flet_audio_recorder.createControl,
