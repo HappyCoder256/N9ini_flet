@@ -39,6 +39,13 @@ jobs:
           cd client
           flutter build windows --release
 
+      # 👇 Remove Redundant API DLL
+      - name: Remove Redundant API DLLs
+        run: |
+          cd client\build\windows\x64\runner\Release
+          del /q api-ms-win-*.dll
+          del /q ucrtbase.dll
+
       # 6️⃣ Upload compiled Windows folder
       - name: Upload Windows Build Artifact
         uses: actions/upload-artifact@v4
