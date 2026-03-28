@@ -28,57 +28,133 @@ class VideoControl extends StatefulWidget {
 class _VideoControlState extends State<VideoControl> with FletStoreMixin {
   GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
 
-  late final playerConfig = PlayerConfiguration(
-    title: widget.control.attrString("title", "Flet Video")!,
-    muted: widget.control.attrBool("muted", false)!,
-    pitch: widget.control.attrDouble("pitch") != null ? true : false,
-    ready: () {
-      if (widget.control.attrBool("onLoaded", false)!) {
-        widget.backend.triggerControlEvent(widget.control.id, "loaded");
-      }
-    },
-  );
+  late final PlayerConfiguration playerConfig;
+  late final Player player;
+  late final VideoControllerConfiguration videoControllerConfiguration;
+  late final VideoController controller;
 
-  late final Player player = Player(
-    configuration: playerConfig,
-  );
-
-  late final videoControllerConfiguration = parseControllerConfiguration(
-      widget.control, "configuration", const VideoControllerConfiguration())!;
-
-  late final controller =
-      VideoController(player, configuration: videoControllerConfiguration);
-
-  Future<void> _applyMpvProperties() async {
-    final cfgRaw = widget.control.attrString("configuration", null);
-    if (cfgRaw == null) return;
-  
-    Map<String, dynamic> cfg;
-    try {
-      cfg = json.decode(cfgRaw);
-    } catch (_) {
-      return;
-    }
-  
-    final mpvPropsRaw = cfg["mpv_properties"];
-    if (mpvPropsRaw is! Map) return;
-  
-    final platform = player.platform;
-    if (platform is! NativePlayer) return;
-    final native = platform as dynamic;
-  
-    for (final entry in mpvPropsRaw.entries) {
-      final key = entry.key.toString();
-      final val = entry.value;
-      if (val == null) continue;
-      final valueStr = val is bool ? (val ? "yes" : "no") : val.toString();
-      await native.setProperty(key, valueStr);
-    }
-  }
+  StreamSubscription? _errorSub;
+  StreamSubscription? _completedSub;
+  StreamSubscription? _playlistSub;
 
   @override
   void initState() {
     super.initState();
+
+    playerConfig = PlayerConfiguration(
+      title: widget.control.attrString("title", "Flet Video")!,
+      muted: widget.control.attrBool("muted", false)!,
+      pitch: widget.control.attrDouble("pitch") != null ? true : false,
+      ready: () {
+        if (widget.control.attrBool("onLoaded", false)!) {
+          widget.backend.triggerControlEvent(widget.control.id, "loaded");
+        }
+      },
+    );
+
+    player = Player(configuration: playerConfig);
+
+    videoControllerConfiguration = parseControllerConfiguration(
+        widget.control, "configuration", const VideoControllerConfiguration())!;
+
+    controller = VideoController(player,
+        configuration: videoControllerConfiguration);
+
+    // setup stream listeners ONCE here
+    _errorSub = player.stream.error.listen((event) {
+      if (widget.control.attrBool("onError", false)!) {
+        _onError(event.toString());
+      }
+    });
+
+    _completedSub = player.stream.completed.listen((event) {
+      if (widget.control.attrBool("onCompleted", false)!) {
+        _onCompleted(event.toString());
+      }
+    });
+
+    _playlistSub = player.stream.playlist.listen((event) {
+      if (widget.control.attrBool("onTrackChanged", false)!) {
+        _onTrackChanged(event.index.toString());
+      }
+    });
+
+    // setup method subscriptions ONCE here
+    widget.backend.subscribeMethods(widget.control.id,
+        (methodName, args) async {
+      switch (methodName) {
+        case "play":
+          debugPrint("Video.play($hashCode)");
+          await player.play();
+          break;
+        case "pause":
+          debugPrint("Video.pause($hashCode)");
+          await player.pause();
+          break;
+        case "play_or_pause":
+          debugPrint("Video.playOrPause($hashCode)");
+          await player.playOrPause();
+          break;
+        case "stop":
+          debugPrint("Video.stop($hashCode)");
+          await player.stop();
+          await player.open(
+            Playlist(parseVideoMedia(widget.control, "playlist")),
+            play: false,
+          );
+          break;
+        case "seek":
+          debugPrint("Video.seek($hashCode)");
+          await player.seek(Duration(
+              milliseconds: int.tryParse(args["position"] ?? "") ?? 0));
+          break;
+        case "next":
+          debugPrint("Video.next($hashCode)");
+          await player.next();
+          break;
+        case "previous":
+          debugPrint("Video.previous($hashCode)");
+          await player.previous();
+          break;
+        case "jump_to":
+          debugPrint("Video.jump($hashCode)");
+          await player.jump(parseInt(args["media_index"], 0)!);
+          break;
+        case "playlist_add":
+          debugPrint("Video.add($hashCode)");
+          Map<String, dynamic> extras =
+              json.decode(args["extras"]!.replaceAll("'", "\""));
+          Map<String, String> httpHeaders = (json.decode(
+                      args["http_headers"]!.replaceAll("'", "\"")) as Map)
+              .map((key, value) =>
+                  MapEntry(key.toString(), value.toString()));
+          await player.add(Media(
+            args["resource"]!,
+            extras: extras.isNotEmpty ? extras : null,
+            httpHeaders: httpHeaders.isNotEmpty ? httpHeaders : null,
+          ));
+          break;
+        case "playlist_remove":
+          debugPrint("Video.remove($hashCode)");
+          await player.remove(parseInt(args["media_index"], 0)!);
+          break;
+        case "is_playing":
+          debugPrint("Video.isPlaying($hashCode)");
+          return player.state.playing.toString();
+        case "is_completed":
+          debugPrint("Video.isCompleted($hashCode)");
+          return player.state.completed.toString();
+        case "get_duration":
+          debugPrint("Video.getDuration($hashCode)");
+          return player.state.duration.inMilliseconds.toString();
+        case "get_current_position":
+          debugPrint("Video.getCurrentPosition($hashCode)");
+          return player.state.position.inMilliseconds.toString();
+      }
+      return null;
+    });
+
+    // open playlist
     () async {
       await _applyMpvProperties();
       await player.open(
@@ -90,8 +166,41 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
 
   @override
   void dispose() {
+    // cancel stream subscriptions
+    _errorSub?.cancel();
+    _completedSub?.cancel();
+    _playlistSub?.cancel();
+    // unsubscribe methods
+    widget.backend.unsubscribeMethods(widget.control.id);
     player.dispose();
     super.dispose();
+  }
+
+  Future<void> _applyMpvProperties() async {
+    final cfgRaw = widget.control.attrString("configuration", null);
+    if (cfgRaw == null) return;
+
+    Map<String, dynamic> cfg;
+    try {
+      cfg = json.decode(cfgRaw);
+    } catch (_) {
+      return;
+    }
+
+    final mpvPropsRaw = cfg["mpv_properties"];
+    if (mpvPropsRaw is! Map) return;
+
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    final native = platform as dynamic;
+
+    for (final entry in mpvPropsRaw.entries) {
+      final key = entry.key.toString();
+      final val = entry.value;
+      if (val == null) continue;
+      final valueStr = val is bool ? (val ? "yes" : "no") : val.toString();
+      await native.setProperty(key, valueStr);
+    }
   }
 
   void _onError(String? message) {
@@ -108,8 +217,8 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
 
   void _onTrackChanged(String? message) {
     debugPrint("Video onTrackChanged: $message");
-    widget.backend
-        .triggerControlEvent(widget.control.id, "track_changed", message ?? "");
+    widget.backend.triggerControlEvent(
+        widget.control.id, "track_changed", message ?? "");
   }
 
   @override
@@ -142,11 +251,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       SubtitleViewConfiguration? subtitleViewConfiguration =
           subtitleConfiguration?["subtitleViewConfiguration"];
 
-      // --- Event flags ---
-      bool onError = widget.control.attrBool("onError", false)!;
-      bool onCompleted = widget.control.attrBool("onCompleted", false)!;
-      bool onTrackChanged = widget.control.attrBool("onTrackChanged", false)!;
-
       // --- Current values ---
       double? volume = widget.control.attrDouble("volume");
       double? pitch = widget.control.attrDouble("pitch");
@@ -175,10 +279,10 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         controller: controller,
         wakelock: widget.control.attrBool("wakelock", true)!,
         controls: showControls ? AdaptiveVideoControls : null,
-        pauseUponEnteringBackgroundMode:
-            widget.control.attrBool("pauseUponEnteringBackgroundMode", true)!,
-        resumeUponEnteringForegroundMode:
-            widget.control.attrBool("resumeUponEnteringForegroundMode", false)!,
+        pauseUponEnteringBackgroundMode: widget.control
+            .attrBool("pauseUponEnteringBackgroundMode", true)!,
+        resumeUponEnteringForegroundMode: widget.control
+            .attrBool("resumeUponEnteringForegroundMode", false)!,
         alignment:
             parseAlignment(widget.control, "alignment", Alignment.center)!,
         fit: parseBoxFit(widget.control.attrString("fit"), BoxFit.contain)!,
@@ -229,7 +333,8 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
           await player.setRate(playbackRate);
         }
 
-        if (shufflePlaylist != null && shufflePlaylist != prevShufflePlaylist) {
+        if (shufflePlaylist != null &&
+            shufflePlaylist != prevShufflePlaylist) {
           widget.control.state["shufflePlaylist"] = shufflePlaylist;
           debugPrint("Video.setShufflePlaylist($shufflePlaylist)");
           await player.setShuffle(shufflePlaylist);
@@ -260,95 +365,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
             }
           });
         }
-
-        // --- Method subscriptions ---
-        widget.backend.subscribeMethods(widget.control.id,
-            (methodName, args) async {
-          switch (methodName) {
-            case "play":
-              debugPrint("Video.play($hashCode)");
-              await player.play();
-              break;
-            case "pause":
-              debugPrint("Video.pause($hashCode)");
-              await player.pause();
-              break;
-            case "play_or_pause":
-              debugPrint("Video.playOrPause($hashCode)");
-              await player.playOrPause();
-              break;
-            case "stop":
-              debugPrint("Video.stop($hashCode)");
-              await player.stop();
-              await player.open(
-                Playlist(parseVideoMedia(widget.control, "playlist")),
-                play: false,
-              );
-              break;
-            case "seek":
-              debugPrint("Video.seek($hashCode)");
-              await player.seek(Duration(
-                  milliseconds: int.tryParse(args["position"] ?? "") ?? 0));
-              break;
-            case "next":
-              debugPrint("Video.next($hashCode)");
-              await player.next();
-              break;
-            case "previous":
-              debugPrint("Video.previous($hashCode)");
-              await player.previous();
-              break;
-            case "jump_to":
-              debugPrint("Video.jump($hashCode)");
-              await player.jump(parseInt(args["media_index"], 0)!);
-              break;
-            case "playlist_add":
-              debugPrint("Video.add($hashCode)");
-              Map<String, dynamic> extras =
-                  json.decode(args["extras"]!.replaceAll("'", "\""));
-              Map<String, String> httpHeaders = (json.decode(
-                          args["http_headers"]!.replaceAll("'", "\"")) as Map)
-                  .map((key, value) =>
-                      MapEntry(key.toString(), value.toString()));
-              await player.add(Media(
-                args["resource"]!,
-                extras: extras.isNotEmpty ? extras : null,
-                httpHeaders: httpHeaders.isNotEmpty ? httpHeaders : null,
-              ));
-              break;
-            case "playlist_remove":
-              debugPrint("Video.remove($hashCode)");
-              await player.remove(parseInt(args["media_index"], 0)!);
-              break;
-            case "is_playing":
-              debugPrint("Video.isPlaying($hashCode)");
-              return player.state.playing.toString();
-            case "is_completed":
-              debugPrint("Video.isCompleted($hashCode)");
-              return player.state.completed.toString();
-            case "get_duration":
-              debugPrint("Video.getDuration($hashCode)");
-              return player.state.duration.inMilliseconds.toString();
-            case "get_current_position":
-              debugPrint("Video.getCurrentPosition($hashCode)");
-              return player.state.position.inMilliseconds.toString();
-          }
-          return null;
-        });
       }();
-
-      // --- Stream listeners ---
-      player.stream.error.listen((event) {
-        if (onError) _onError(event.toString());
-      });
-
-      player.stream.completed.listen((event) {
-        if (onCompleted) _onCompleted(event.toString());
-      });
-
-      player.stream.playlist.listen((event) {
-        if (onTrackChanged) _onTrackChanged(event.index.toString());
-      });
 
       return constrainedControl(
           context, video, widget.parent, widget.control);
