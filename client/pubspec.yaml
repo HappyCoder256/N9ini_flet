@@ -39,6 +39,8 @@ dependencies:
       path: src/flutter/flet_audio
   flet_video:
     path: ../sdk/python/packages/flet-video/src/flutter/flet_video
+  flet_notifications:
+    path: ../sdk/python/packages/flet_notifications/src/flutter/flet_notifications
   # flet_video:
   #   git:
   #     url: https://github.com/flet-dev/flet-video.git
