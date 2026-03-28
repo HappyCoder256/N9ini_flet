@@ -31,7 +31,6 @@ jobs:
       - name: Flutter Pub Get
         run: |
           cd client
-          flutter pub cache clean --force
           flutter pub get
 
       # 5️⃣ Build Windows Release
