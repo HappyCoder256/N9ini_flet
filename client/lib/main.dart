@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:flet/flet.dart';
 import 'package:flet_ads/flet_ads.dart' as flet_ads;
-// --FAT_CLIENT_START--
 import 'package:flet_audio/flet_audio.dart' as flet_audio;
-// --FAT_CLIENT_END--
 import 'package:flet_audio_recorder/flet_audio_recorder.dart'
     as flet_audio_recorder;
 import "package:flet_flashlight/flet_flashlight.dart" as flet_flashlight;
@@ -15,9 +13,7 @@ import 'package:flet_map/flet_map.dart' as flet_map;
 import 'package:flet_permission_handler/flet_permission_handler.dart'
     as flet_permission_handler;
 import 'package:flet_rive/flet_rive.dart' as flet_rive;
-// --FAT_CLIENT_START--
 import 'package:flet_video/flet_video.dart' as flet_video;
-// --FAT_CLIENT_END--
 import 'package:flet_webview/flet_webview.dart' as flet_webview;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -35,10 +31,9 @@ void main([List<String>? args]) async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
-  // --FAT_CLIENT_START--
   flet_audio.ensureInitialized();
   flet_video.ensureInitialized();
-  // --FAT_CLIENT_END--
+
   flet_audio_recorder.ensureInitialized();
   flet_geolocator.ensureInitialized();
   flet_carousel_slider.ensureInitialized();
@@ -107,10 +102,10 @@ void main([List<String>? args]) async {
     errorsHandler: errorsHandler,
     showAppStartupScreen: true,
     createControlFactories: [
-// --FAT_CLIENT_START--
+
       flet_audio.createControl,
       flet_video.createControl,
-// --FAT_CLIENT_END--
+
       flet_audio_recorder.createControl,
       flet_carousel_slider.createControl,
       flet_geolocator.createControl,
