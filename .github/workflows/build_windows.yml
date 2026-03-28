@@ -31,7 +31,9 @@ jobs:
       - name: Flutter Pub Get
         run: |
           cd client
-          flutter pub cache clean
+          rd /s /q $env:LOCALAPPDATA\Pub\Cache\git\flet-video* 2>$null || true
+          rd /s /q $env:LOCALAPPDATA\Pub\Cache\git\flet-audio* 2>$null || true
+          flutter pub cache repair
           flutter pub get
 
       # 5️⃣ Build Windows Release
