@@ -113,7 +113,7 @@ void main([List<String>? args]) async {
 // --FAT_CLIENT_END--
       flet_audio_recorder.createControl,
       flet_geolocator.createControl,
-      flet_carousel_slider.createControl
+      flet_carousel_slider.createControl,
       flet_permission_handler.createControl,
       flet_lottie.createControl,
       flet_map.createControl,
