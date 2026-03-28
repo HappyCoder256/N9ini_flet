@@ -50,24 +50,23 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       VideoController(player, configuration: videoControllerConfiguration);
 
   Future<void> _applyMpvProperties() async {
-    final cfgRaw = widget.control.attrString("configuration");
+    final cfgRaw = widget.control.attrString("configuration", null);
     if (cfgRaw == null) return;
-
-    Map<String, dynamic>? cfg;
+  
+    Map<String, dynamic> cfg;
     try {
       cfg = json.decode(cfgRaw);
     } catch (_) {
       return;
     }
-    if (cfg == null) return;
-
+  
     final mpvPropsRaw = cfg["mpv_properties"];
     if (mpvPropsRaw is! Map) return;
-
+  
     final platform = player.platform;
     if (platform is! NativePlayer) return;
     final native = platform as dynamic;
-
+  
     for (final entry in mpvPropsRaw.entries) {
       final key = entry.key.toString();
       final val = entry.value;
