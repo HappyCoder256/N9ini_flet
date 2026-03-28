@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - n9ini_desktop_client
+      - Final_N9ini_Flet
 
 jobs:
   build-windows:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: n9ini_desktop_client
+          ref: Final_N9ini_Flet
 
       # 2️⃣ Setup Flutter 3.29.2
       - name: Set up Flutter
