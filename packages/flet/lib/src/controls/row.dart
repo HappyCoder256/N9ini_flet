@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+
 import '../flet_control_backend.dart';
 import '../models/control.dart';
 import '../utils/alignment.dart';
@@ -26,7 +27,6 @@ class RowControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     debugPrint("Row build: ${control.id}");
-
     bool disabled = control.isDisabled || parentDisabled;
     bool? adaptive = control.attrBool("adaptive") ?? parentAdaptive;
 
@@ -49,7 +49,7 @@ class RowControl extends StatelessWidget {
             alignment: parseWrapAlignment(
                 control.attrString("alignment"), WrapAlignment.start)!,
             runAlignment: parseWrapAlignment(
-                control.attrString("runAlignment"), WrapAlignment.start)!,  // ✅ added from v2
+                control.attrString("runAlignment"), WrapAlignment.start)!,
             crossAxisAlignment: parseWrapCrossAlignment(
                 verticalAlignment, WrapCrossAlignment.center)!,
             children: controls,
@@ -62,11 +62,6 @@ class RowControl extends StatelessWidget {
                 verticalAlignment, CrossAxisAlignment.center)!,
             children: controls,
           );
-
-    // ✅ Added from v2: wrap in IntrinsicHeight when intrinsic_height is true
-    if (control.attrBool("intrinsicHeight", false)!) {
-      child = IntrinsicHeight(child: child);
-    }
 
     child = ScrollableControl(
         control: control,
