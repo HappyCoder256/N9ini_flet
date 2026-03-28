@@ -11,6 +11,7 @@ import "package:flet_flashlight/flet_flashlight.dart" as flet_flashlight;
 import 'package:flet_geolocator/flet_geolocator.dart' as flet_geolocator;
 import 'package:flet_lottie/flet_lottie.dart' as flet_lottie;
 import 'package:flet_carousel_slider/flet_carousel_slider.dart' as flet_carousel_slider;
+import 'package:flet_notifications/flet_notifications.dart' as flet_notifications;
 import 'package:flet_map/flet_map.dart' as flet_map;
 import 'package:flet_permission_handler/flet_permission_handler.dart'
     as flet_permission_handler;
@@ -43,6 +44,7 @@ void main([List<String>? args]) async {
   flet_geolocator.ensureInitialized();
   flet_permission_handler.ensureInitialized();
   flet_carousel_slider.ensureInitialized();
+  flet_notifications.ensureInitialized();
   flet_lottie.ensureInitialized();
   flet_map.ensureInitialized();
   flet_ads.ensureInitialized();
@@ -111,6 +113,7 @@ void main([List<String>? args]) async {
       flet_audio.createControl,
       flet_video.createControl,
 // --FAT_CLIENT_END--
+      flet_notifications.createControl,
       flet_audio_recorder.createControl,
       flet_geolocator.createControl,
       flet_carousel_slider.createControl,
