@@ -38,13 +38,23 @@ jobs:
         run: |
           cd client
           flutter build windows --release
-
-      # 👇 Remove Redundant API DLL
-      - name: Remove Redundant API DLLs
+          
+      - name: Remove Conflicting DLLs
         run: |
           cd client\build\windows\x64\runner\Release
-          del /q api-ms-win-*.dll
-          del /q ucrtbase.dll
+          del /q api-ms-win-*.dll 2>nul
+          del /q ucrtbase.dll 2>nul
+          del /q vcruntime140.dll 2>nul
+          del /q vcruntime140_1.dll 2>nul
+          del /q msvcp140.dll 2>nul
+          del /q msvcp140_1.dll 2>nul
+          del /q msvcp140_2.dll 2>nul
+          del /q msvcp140_atomic_wait.dll 2>nul
+          del /q msvcp140_codecvt_ids.dll 2>nul
+          del /q vccorlib140.dll 2>nul
+          del /q vcruntime140_1d.dll 2>nul
+          del /q vcruntime140d.dll 2>nul
+          del /q vccorlib140d.dll 2>nul
 
       # 6️⃣ Upload compiled Windows folder
       - name: Upload Windows Build Artifact
