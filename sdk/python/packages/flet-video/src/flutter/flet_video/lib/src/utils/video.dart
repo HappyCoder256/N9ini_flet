@@ -113,9 +113,7 @@ VideoControllerConfiguration? parseControllerConfiguration(
 
 VideoControllerConfiguration? controllerConfigurationFromJSON(dynamic json) {
   return VideoControllerConfiguration(
-    vo: json["output_driver"],
-    hwdec: json["hardware_decoding_api"],
     enableHardwareAcceleration:
-        parseBool(json["enable_hardware_acceleration"], true)!,
+        parseBool(json["enable_hardware_acceleration"], false)!,
   );
 }
