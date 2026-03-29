@@ -26,7 +26,6 @@ class VideoControl extends StatefulWidget {
 }
 
 class _VideoControlState extends State<VideoControl> with FletStoreMixin {
-  // ✅ not final so it can be reassigned
   GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
 
   late final Player player;
@@ -57,10 +56,12 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     );
 
     // --- Controller ---
+    // ✅ parse configuration from attrString then decode
     controller = VideoController(
       player,
       configuration: parseControllerConfiguration(
-        widget.control.get("configuration"),
+        widget.control,
+        "configuration",
         const VideoControllerConfiguration(),
       )!,
     );
@@ -90,9 +91,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     // --- Init player safely ---
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_disposed) return;
-
-      // ✅ wait for controller to be fully ready
-      // await controller.waitUntilFirstFrameRendered;
 
       await _applyMpvProperties();
 
@@ -152,7 +150,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         await player.jump(parseInt(args["media_index"], 0)!);
         return null;
 
-      // ✅ added playlist_add
       case "playlist_add":
         Map<String, dynamic> extras =
             json.decode(args["extras"]!.replaceAll("'", "\""));
@@ -167,7 +164,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         ));
         return null;
 
-      // ✅ added playlist_remove
       case "playlist_remove":
         await player.remove(parseInt(args["media_index"], 0)!);
         return null;
@@ -199,17 +195,25 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
   // ================= MPV CONFIG =================
 
   Future<void> _applyMpvProperties() async {
-    // ✅ use control.get() not attrString + json.decode
-    final cfg = widget.control.get("configuration");
-    if (cfg is! Map) return;
-  
+    // ✅ use attrString + json.decode since control.get() doesn't exist
+    final raw = widget.control.attrString("configuration", null);
+    if (raw == null) return;
+
+    Map<String, dynamic> cfg;
+    try {
+      cfg = json.decode(raw);
+    } catch (e) {
+      debugPrint("MPV config decode error: $e");
+      return;
+    }
+
     final mpvPropsRaw = cfg["mpv_properties"];
     if (mpvPropsRaw is! Map) return;
-  
+
     final platform = player.platform;
     if (platform is! NativePlayer) return;
     final native = platform as dynamic;
-  
+
     for (final entry in mpvPropsRaw.entries) {
       final key = entry.key.toString();
       final val = entry.value;
@@ -307,8 +311,10 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       () async {
         if (_disposed) return;
 
-        if (volume != null && volume != prevVolume &&
-            volume >= 0 && volume <= 100) {
+        if (volume != null &&
+            volume != prevVolume &&
+            volume >= 0 &&
+            volume <= 100) {
           widget.control.state["volume"] = volume;
           await player.setVolume(volume);
           debugPrint("Video.setVolume($volume)");
@@ -365,7 +371,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         controls: widget.control.attrBool("showControls", true)!
             ? AdaptiveVideoControls
             : null,
-        // ✅ added missing properties
         pauseUponEnteringBackgroundMode:
             widget.control.attrBool("pauseUponEnteringBackgroundMode", true)!,
         resumeUponEnteringForegroundMode: widget.control
@@ -380,15 +385,14 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         fill: parseColor(Theme.of(context),
                 widget.control.attrString("fillColor", "")!) ??
             const Color(0xFF000000),
+        // ✅ fixed - no extra }, 
         onEnterFullscreen: () async {
           _trigger("enter_fullscreen", "");
           await defaultEnterNativeFullscreen();
         },
-        
         onExitFullscreen: () async {
           _trigger("exit_fullscreen", "");
           await defaultExitNativeFullscreen();
-        },
         },
       );
 
