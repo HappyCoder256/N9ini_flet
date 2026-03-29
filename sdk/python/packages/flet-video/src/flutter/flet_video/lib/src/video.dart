@@ -60,8 +60,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     controller = VideoController(
       player,
       configuration: parseControllerConfiguration(
-        widget.control,
-        "configuration",
+        json.decode(widget.control.attrString("configuration", "{}") ?? "{}"),
         const VideoControllerConfiguration(),
       )!,
     );
