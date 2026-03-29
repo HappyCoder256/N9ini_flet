@@ -1,22 +1,22 @@
 import 'dart:convert';
 import 'dart:io';
-
+ 
 import 'package:flet/flet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
-
+ 
 // ============================================================
 // NotificationActionData
 // ============================================================
-
+ 
 class NotificationActionData {
   final String id;
   final String title;
   final bool destructive;
   final bool foreground;
-
+ 
   NotificationActionData({
     required this.id,
     required this.title,
@@ -24,42 +24,42 @@ class NotificationActionData {
     this.foreground = true,
   });
 }
-
+ 
 // ============================================================
 // NotificationService
 // ============================================================
-
+ 
 class NotificationService {
   static final NotificationService _instance =
       NotificationService._internal();
-
+ 
   factory NotificationService() => _instance;
-
+ 
   NotificationService._internal() {
     tz_data.initializeTimeZones();
   }
-
+ 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
-
+ 
   bool _isInitialized = false;
   Function(String, String)? _onActionCallback;
-
+ 
   void setActionCallback(Function(String, String) callback) {
     _onActionCallback = callback;
   }
-
+ 
   // ----------------------------------------------------------
   // Initialize
   // ----------------------------------------------------------
-
+ 
   Future<void> initialize() async {
     if (_isInitialized) return;
     debugPrint('Initializing notification service...');
-
+ 
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-
+ 
     final DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
       notificationCategories: [
@@ -81,7 +81,7 @@ class NotificationService {
         ),
       ],
     );
-
+ 
     final DarwinInitializationSettings macOSSettings =
         DarwinInitializationSettings(
       notificationCategories: [
@@ -103,21 +103,21 @@ class NotificationService {
         ),
       ],
     );
-
+ 
     const WindowsInitializationSettings windowsSettings =
         WindowsInitializationSettings(
       appName: 'Flet App',
       appUserModelId: 'com.flet.app',
       guid: 'd49a6d89-2d4a-4a2a-a8f2-1234567890ab',
     );
-
+ 
     final InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
       macOS: macOSSettings,
       windows: windowsSettings,
     );
-
+ 
     await _plugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
@@ -132,17 +132,16 @@ class NotificationService {
         }
       },
     );
-
+ 
     _isInitialized = true;
     debugPrint('Notification service initialized');
   }
-
+ 
   // ----------------------------------------------------------
   // Build notification details
   // ----------------------------------------------------------
-
-  NotificationDetails _buildDetails(
-      List<NotificationActionData>? actions) {
+ 
+  NotificationDetails _buildDetails(List<NotificationActionData>? actions) {
     // Android
     AndroidNotificationDetails androidDetails;
     if (actions != null && actions.isNotEmpty) {
@@ -170,12 +169,12 @@ class NotificationService {
         priority: Priority.high,
       );
     }
-
+ 
     // iOS / macOS
     const DarwinNotificationDetails darwinDetails = DarwinNotificationDetails(
       categoryIdentifier: 'default_category',
     );
-
+ 
     // Windows
     final List<WindowsAction> windowsActions = actions != null
         ? actions
@@ -185,10 +184,10 @@ class NotificationService {
                 ))
             .toList()
         : [];
-
+ 
     final WindowsNotificationDetails windowsDetails =
         WindowsNotificationDetails(actions: windowsActions);
-
+ 
     return NotificationDetails(
       android: androidDetails,
       iOS: darwinDetails,
@@ -196,11 +195,11 @@ class NotificationService {
       windows: windowsDetails,
     );
   }
-
+ 
   // ----------------------------------------------------------
   // Show notification
   // ----------------------------------------------------------
-
+ 
   Future<void> showNotification(
     int id,
     String title,
@@ -222,11 +221,11 @@ class NotificationService {
       debugPrint('Error showing notification: $e');
     }
   }
-
+ 
   // ----------------------------------------------------------
   // Schedule notification
   // ----------------------------------------------------------
-
+ 
   Future<void> scheduleNotification(
     int id,
     String title,
@@ -236,7 +235,7 @@ class NotificationService {
     List<NotificationActionData>? actions,
   }) async {
     if (!_isInitialized) await initialize();
-
+ 
     if (Platform.isWindows) {
       final Duration delay = scheduledDate.difference(DateTime.now());
       if (delay.isNegative) {
@@ -252,7 +251,7 @@ class NotificationService {
       });
       return;
     }
-
+ 
     try {
       await _plugin.zonedSchedule(
         id,
@@ -268,11 +267,11 @@ class NotificationService {
       debugPrint('Error scheduling notification: $e');
     }
   }
-
+ 
   // ----------------------------------------------------------
   // Cancel
   // ----------------------------------------------------------
-
+ 
   Future<void> cancelNotification(int id) async {
     try {
       await _plugin.cancel(id);
@@ -281,7 +280,7 @@ class NotificationService {
       debugPrint('Error cancelling notification: $e');
     }
   }
-
+ 
   Future<void> cancelAllNotifications() async {
     try {
       await _plugin.cancelAll();
@@ -290,66 +289,79 @@ class NotificationService {
       debugPrint('Error cancelling all notifications: $e');
     }
   }
-
+ 
   // ----------------------------------------------------------
   // Request permissions
+  // ✅ Generics completely avoided - uses cast() instead
   // ----------------------------------------------------------
-  
+ 
   Future<bool?> requestPermissions() async {
     if (!_isInitialized) await initialize();
-  
+ 
     if (Platform.isWindows) {
       debugPrint('Windows: no permission request needed');
       return true;
     }
-  
+ 
     bool? result;
-  
+ 
     try {
       if (Platform.isAndroid) {
-        result = await _plugin
-            .resolvePlatformSpecificImplementation
-                AndroidFlutterLocalNotificationsPlugin>()
-            ?.requestNotificationsPermission();
+        final dynamic androidPlugin = _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          result = await (androidPlugin
+                  as AndroidFlutterLocalNotificationsPlugin)
+              .requestNotificationsPermission();
+        }
         debugPrint('Android permissions: $result');
       } else if (Platform.isIOS) {
-        result = await _plugin
-            .resolvePlatformSpecificImplementation
-                IOSFlutterLocalNotificationsPlugin>()
-            ?.requestPermissions(
-              alert: true,
-              badge: true,
-              sound: true,
-            );
+        final dynamic iosPlugin = _plugin
+            .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin>();
+        if (iosPlugin != null) {
+          result = await (iosPlugin as IOSFlutterLocalNotificationsPlugin)
+              .requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+        }
         debugPrint('iOS permissions: $result');
       } else if (Platform.isMacOS) {
-        result = await _plugin
-            .resolvePlatformSpecificImplementation
-                MacOSFlutterLocalNotificationsPlugin>()
-            ?.requestPermissions(
-              alert: true,
-              badge: true,
-              sound: true,
-            );
+        final dynamic macOSPlugin = _plugin
+            .resolvePlatformSpecificImplementation<
+                MacOSFlutterLocalNotificationsPlugin>();
+        if (macOSPlugin != null) {
+          result =
+              await (macOSPlugin as MacOSFlutterLocalNotificationsPlugin)
+                  .requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+        }
         debugPrint('macOS permissions: $result');
       }
     } catch (e) {
       debugPrint('Error requesting permissions: $e');
     }
-  
+ 
     return result ?? false;
   }
-
+} // ← end of NotificationService
+ 
 // ============================================================
 // FletNotificationsControl
 // ============================================================
-
+ 
 class FletNotificationsControl extends StatefulWidget {
   final Control? parent;
   final Control control;
   final List<Control> children;
   final FletControlBackend backend;
-
+ 
   const FletNotificationsControl({
     Key? key,
     required this.parent,
@@ -357,23 +369,23 @@ class FletNotificationsControl extends StatefulWidget {
     required this.children,
     required this.backend,
   }) : super(key: key);
-
+ 
   @override
   State<FletNotificationsControl> createState() =>
       _FletNotificationsControlState();
 }
-
+ 
 class _FletNotificationsControlState
     extends State<FletNotificationsControl> {
   final NotificationService _service = NotificationService();
-
+ 
   @override
   void initState() {
     super.initState();
     _initialize();
     _subscribeMethods();
   }
-
+ 
   Future<void> _initialize() async {
     await _service.initialize();
     _service.setActionCallback((String actionId, String payload) {
@@ -384,14 +396,14 @@ class _FletNotificationsControlState
       );
     });
   }
-
+ 
   void _subscribeMethods() {
     widget.backend.subscribeMethods(widget.control.id, _handleMethod);
   }
-
+ 
   List<NotificationActionData>? _parseActions(String? actionsStr) {
     if (actionsStr == null || actionsStr.isEmpty) return null;
-
+ 
     final List<NotificationActionData> actions = [];
     for (final String item in actionsStr.split(',')) {
       final List<String> parts = item.split('|');
@@ -406,11 +418,11 @@ class _FletNotificationsControlState
     }
     return actions.isNotEmpty ? actions : null;
   }
-
+ 
   Future<String?> _handleMethod(
       String methodName, Map<String, String> args) async {
     debugPrint('Notification method: $methodName args: $args');
-
+ 
     switch (methodName) {
       case 'show_notification':
         final int id = int.tryParse(args['id'] ?? '0') ?? 0;
@@ -427,7 +439,7 @@ class _FletNotificationsControlState
           actions: actions,
         );
         return 'ok';
-
+ 
       case 'schedule_notification':
         final int id = int.tryParse(args['id'] ?? '0') ?? 0;
         final String title = args['title'] ?? '';
@@ -436,9 +448,9 @@ class _FletNotificationsControlState
         final String dateTimeStr = args['scheduled_date'] ?? '';
         final List<NotificationActionData>? actions =
             _parseActions(args['actions']);
-
+ 
         if (dateTimeStr.isEmpty) return 'error:missing_date';
-
+ 
         try {
           final DateTime scheduledDate = DateTime.parse(dateTimeStr);
           await _service.scheduleNotification(
@@ -454,32 +466,32 @@ class _FletNotificationsControlState
           debugPrint('Error parsing date: $e');
           return 'error:invalid_date';
         }
-
+ 
       case 'cancel_notification':
         final int id = int.tryParse(args['id'] ?? '0') ?? 0;
         await _service.cancelNotification(id);
         return 'ok';
-
+ 
       case 'cancel_all_notifications':
         await _service.cancelAllNotifications();
         return 'ok';
-
+ 
       case 'request_permissions':
         final bool? result = await _service.requestPermissions();
         return result.toString();
-
+ 
       default:
         debugPrint('Unrecognized method: $methodName');
         return null;
     }
   }
-
+ 
   @override
   void dispose() {
     widget.backend.unsubscribeMethods(widget.control.id);
     super.dispose();
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return const SizedBox.shrink();
