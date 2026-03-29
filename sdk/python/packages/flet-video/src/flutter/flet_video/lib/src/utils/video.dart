@@ -99,23 +99,34 @@ SubtitleTrack parseSubtitleTrack(
   }
 }
 
+
+// ✅ takes dynamic object directly, not Control + propName
 VideoControllerConfiguration? parseControllerConfiguration(
-    Control control, String propName,
+    dynamic json,
     [VideoControllerConfiguration? defValue]) {
-  var v = control.attrString(propName, null);
-  if (v == null) {
-    return defValue;
-  }
-
-  final j1 = json.decode(v);
-  return controllerConfigurationFromJSON(j1);
-}
-
-VideoControllerConfiguration? controllerConfigurationFromJSON(dynamic json) {
+  if (json is! Map) return defValue;
   return VideoControllerConfiguration(
-    vo: json["output_driver"],
-    hwdec: json["hardware_decoding_api"],
     enableHardwareAcceleration:
         parseBool(json["enable_hardware_acceleration"], true)!,
   );
 }
+// VideoControllerConfiguration? parseControllerConfiguration(
+//     Control control, String propName,
+//     [VideoControllerConfiguration? defValue]) {
+//   var v = control.attrString(propName, null);
+//   if (v == null) {
+//     return defValue;
+//   }
+
+//   final j1 = json.decode(v);
+//   return controllerConfigurationFromJSON(j1);
+// }
+
+// VideoControllerConfiguration? controllerConfigurationFromJSON(dynamic json) {
+//   return VideoControllerConfiguration(
+//     vo: json["output_driver"],
+//     hwdec: json["hardware_decoding_api"],
+//     enableHardwareAcceleration:
+//         parseBool(json["enable_hardware_acceleration"], true)!,
+//   );
+// }
