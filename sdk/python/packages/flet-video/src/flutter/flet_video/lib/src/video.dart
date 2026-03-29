@@ -60,8 +60,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     controller = VideoController(
       player,
       configuration: parseControllerConfiguration(
-        widget.control,
-        "configuration",
+        widget.control.get("configuration"),
         const VideoControllerConfiguration(),
       )!,
     );
@@ -200,36 +199,27 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
   // ================= MPV CONFIG =================
 
   Future<void> _applyMpvProperties() async {
-    final raw = widget.control.attrString("configuration");
-    if (raw == null) return;
-
-    Map<String, dynamic> cfg;
-    try {
-      cfg = json.decode(raw);
-    } catch (_) {
-      return;
-    }
-
-    final mpv = cfg["mpv_properties"];
-    if (mpv is! Map) return;
-
+    // ✅ use control.get() not attrString + json.decode
+    final cfg = widget.control.get("configuration");
+    if (cfg is! Map) return;
+  
+    final mpvPropsRaw = cfg["mpv_properties"];
+    if (mpvPropsRaw is! Map) return;
+  
     final platform = player.platform;
     if (platform is! NativePlayer) return;
-
     final native = platform as dynamic;
-
-    for (final entry in mpv.entries) {
+  
+    for (final entry in mpvPropsRaw.entries) {
       final key = entry.key.toString();
       final val = entry.value;
       if (val == null) continue;
-
-      final value = val is bool ? (val ? "yes" : "no") : val.toString();
-
+      final valueStr = val is bool ? (val ? "yes" : "no") : val.toString();
       try {
-        await native.setProperty(key, value);
-        debugPrint("MPV: $key = $value");
+        await native.setProperty(key, valueStr);
+        debugPrint("MPV SET: $key = $valueStr ✅");
       } catch (e) {
-        debugPrint("MPV ERROR: $key -> $e");
+        debugPrint("MPV ERROR: $key -> $e ❌");
       }
     }
   }
@@ -391,14 +381,14 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
                 widget.control.attrString("fillColor", "")!) ??
             const Color(0xFF000000),
         onEnterFullscreen: () async {
-          widget.control.state["fullscreen"] = true;
           _trigger("enter_fullscreen", "");
           await defaultEnterNativeFullscreen();
         },
+        
         onExitFullscreen: () async {
-          widget.control.state["fullscreen"] = false;
           _trigger("exit_fullscreen", "");
           await defaultExitNativeFullscreen();
+        },
         },
       );
 
