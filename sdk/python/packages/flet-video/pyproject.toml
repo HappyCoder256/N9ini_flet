@@ -1,0 +1,36 @@
+[project]
+name = "flet-video"
+version = "0.1.0"
+description = "Video control for Flet"
+readme = "README.md"
+authors = [
+    { name = "Flet contributors", email = "hello@flet.dev" }
+]
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "flet>=0.25.1",
+]
+
+[project.urls]
+Homepage = "https://flet.dev"
+Documentation = "https://flet.dev/docs/controls/video"
+Repository = "https://github.com/flet-dev/flet-video"
+Issues = "https://github.com/flet-dev/flet-video/issues"
+
+[tool.setuptools.package-data]
+"flutter.flet_video" = ["**/*"]
+
+[tool.uv]
+dev-dependencies = [
+    "flet[all]>=0.25.1",
+]
+
+[tool.setuptools]
+license-files = []
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
