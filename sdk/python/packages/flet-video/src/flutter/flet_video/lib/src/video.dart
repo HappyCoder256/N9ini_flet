@@ -93,7 +93,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       if (_disposed) return;
 
       // ✅ wait for controller to be fully ready
-      await controller.waitUntilFirstFrameRendered;
+      // await controller.waitUntilFirstFrameRendered;
 
       await _applyMpvProperties();
 
