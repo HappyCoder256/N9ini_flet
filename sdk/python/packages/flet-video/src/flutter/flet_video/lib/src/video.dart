@@ -26,7 +26,8 @@ class VideoControl extends StatefulWidget {
 }
 
 class _VideoControlState extends State<VideoControl> with FletStoreMixin {
-  final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
+  // ✅ not final so it can be reassigned
+  GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
 
   late final Player player;
   late final VideoController controller;
@@ -91,10 +92,12 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_disposed) return;
 
+      // ✅ wait for controller to be fully ready
+      await controller.waitUntilFirstFrameRendered;
+
       await _applyMpvProperties();
 
       final playlist = parseVideoMedia(widget.control, "playlist");
-
       if (playlist.isEmpty) {
         debugPrint("⚠️ Empty playlist");
         return;
@@ -150,13 +153,31 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         await player.jump(parseInt(args["media_index"], 0)!);
         return null;
 
+      // ✅ added playlist_add
+      case "playlist_add":
+        Map<String, dynamic> extras =
+            json.decode(args["extras"]!.replaceAll("'", "\""));
+        Map<String, String> httpHeaders =
+            (json.decode(args["http_headers"]!.replaceAll("'", "\"")) as Map)
+                .map((key, value) =>
+                    MapEntry(key.toString(), value.toString()));
+        await player.add(Media(
+          args["resource"]!,
+          extras: extras.isNotEmpty ? extras : null,
+          httpHeaders: httpHeaders.isNotEmpty ? httpHeaders : null,
+        ));
+        return null;
+
+      // ✅ added playlist_remove
+      case "playlist_remove":
+        await player.remove(parseInt(args["media_index"], 0)!);
+        return null;
+
       case "fullscreen":
         final value = args["value"] == "true";
-
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final state = _videoKey.currentState;
           if (state == null) return;
-
           value ? state.enterFullscreen() : state.exitFullscreen();
         });
         return null;
@@ -230,7 +251,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     _playlistSub?.cancel();
 
     widget.backend.unsubscribeMethods(widget.control.id);
-
     player.dispose();
 
     super.dispose();
@@ -240,6 +260,8 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
 
   @override
   Widget build(BuildContext context) {
+    if (_disposed) return const SizedBox.shrink();
+
     return withPageArgs((context, pageArgs) {
       final filterQuality = parseFilterQuality(
           widget.control.attrString("filterQuality"), FilterQuality.low)!;
@@ -256,7 +278,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
             pageArgs.pageUri!,
             pageArgs.assetsDir,
           );
-
           subtitleTrack = parseSubtitleTrack(
             assetSrc,
             subtitleConfig?["title"],
@@ -268,21 +289,85 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         }
       }
 
-      // --- Fullscreen sync ---
-      final fullscreen = widget.control.attrBool("fullscreen", false)!;
-      final prevFullscreen = widget.control.state["fullscreen"] ?? false;
+      // --- Current property values ---
+      final double? volume = widget.control.attrDouble("volume");
+      final double? pitch = widget.control.attrDouble("pitch");
+      final double? playbackRate = widget.control.attrDouble("playbackRate");
+      final bool? shufflePlaylist = widget.control.attrBool("shufflePlaylist");
+      final PlaylistMode? playlistMode =
+          PlaylistMode.values.firstWhereOrNull((e) =>
+              e.name.toLowerCase() ==
+              widget.control.attrString("playlistMode")?.toLowerCase());
+      final bool fullscreen = widget.control.attrBool("fullscreen", false)!;
 
-      if (fullscreen != prevFullscreen) {
-        widget.control.state["fullscreen"] = fullscreen;
+      // --- Previous property values ---
+      final double? prevVolume = widget.control.state["volume"];
+      final double? prevPitch = widget.control.state["pitch"];
+      final double? prevPlaybackRate = widget.control.state["playbackRate"];
+      final bool? prevShufflePlaylist =
+          widget.control.state["shufflePlaylist"];
+      final PlaylistMode? prevPlaylistMode =
+          widget.control.state["playlistMode"];
+      final SubtitleTrack? prevSubtitleTrack =
+          widget.control.state["subtitleTrack"];
+      final bool prevFullscreen =
+          widget.control.state["fullscreen"] ?? false;
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final state = _videoKey.currentState;
-          if (state == null) return;
+      // --- Apply property changes ---
+      () async {
+        if (_disposed) return;
 
-          fullscreen ? state.enterFullscreen() : state.exitFullscreen();
-        });
-      }
+        if (volume != null && volume != prevVolume &&
+            volume >= 0 && volume <= 100) {
+          widget.control.state["volume"] = volume;
+          await player.setVolume(volume);
+          debugPrint("Video.setVolume($volume)");
+        }
 
+        if (pitch != null && pitch != prevPitch) {
+          widget.control.state["pitch"] = pitch;
+          await player.setPitch(pitch);
+          debugPrint("Video.setPitch($pitch)");
+        }
+
+        if (playbackRate != null && playbackRate != prevPlaybackRate) {
+          widget.control.state["playbackRate"] = playbackRate;
+          await player.setRate(playbackRate);
+          debugPrint("Video.setRate($playbackRate)");
+        }
+
+        if (shufflePlaylist != null &&
+            shufflePlaylist != prevShufflePlaylist) {
+          widget.control.state["shufflePlaylist"] = shufflePlaylist;
+          await player.setShuffle(shufflePlaylist);
+          debugPrint("Video.setShuffle($shufflePlaylist)");
+        }
+
+        if (playlistMode != null && playlistMode != prevPlaylistMode) {
+          widget.control.state["playlistMode"] = playlistMode;
+          await player.setPlaylistMode(playlistMode);
+          debugPrint("Video.setPlaylistMode($playlistMode)");
+        }
+
+        if (subtitleTrack != null && subtitleTrack != prevSubtitleTrack) {
+          widget.control.state["subtitleTrack"] = subtitleTrack;
+          await player.setSubtitleTrack(subtitleTrack);
+          debugPrint("Video.setSubtitleTrack($subtitleTrack)");
+        }
+
+        // --- Fullscreen toggle ---
+        if (fullscreen != prevFullscreen) {
+          widget.control.state["fullscreen"] = fullscreen;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_disposed) return;
+            final state = _videoKey.currentState;
+            if (state == null) return;
+            fullscreen ? state.enterFullscreen() : state.exitFullscreen();
+          });
+        }
+      }();
+
+      // --- Build Video widget ---
       final video = Video(
         key: _videoKey,
         controller: controller,
@@ -290,24 +375,26 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         controls: widget.control.attrBool("showControls", true)!
             ? AdaptiveVideoControls
             : null,
-        fit: parseBoxFit(
-            widget.control.attrString("fit"), BoxFit.contain)!,
+        // ✅ added missing properties
+        pauseUponEnteringBackgroundMode:
+            widget.control.attrBool("pauseUponEnteringBackgroundMode", true)!,
+        resumeUponEnteringForegroundMode: widget.control
+            .attrBool("resumeUponEnteringForegroundMode", false)!,
+        fit: parseBoxFit(widget.control.attrString("fit"), BoxFit.contain)!,
         alignment:
             parseAlignment(widget.control, "alignment", Alignment.center)!,
         filterQuality: filterQuality,
         subtitleViewConfiguration:
             subtitleConfig?["subtitleViewConfiguration"] ??
                 const SubtitleViewConfiguration(),
-        fill: parseColor(
-                Theme.of(context), widget.control.attrString("fillColor", "")!) ??
+        fill: parseColor(Theme.of(context),
+                widget.control.attrString("fillColor", "")!) ??
             const Color(0xFF000000),
-
         onEnterFullscreen: () async {
           widget.control.state["fullscreen"] = true;
           _trigger("enter_fullscreen", "");
           await defaultEnterNativeFullscreen();
         },
-
         onExitFullscreen: () async {
           widget.control.state["fullscreen"] = false;
           _trigger("exit_fullscreen", "");
