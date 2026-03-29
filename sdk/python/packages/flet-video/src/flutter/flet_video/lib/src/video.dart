@@ -49,8 +49,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         pitch: widget.control.attrDouble("pitch") != null,
         ready: () {
           if (widget.control.attrBool("onLoaded", false)!) {
-            widget.backend
-                .triggerControlEvent(widget.control.id, "loaded");
+            _trigger("loaded", "");
           }
         },
       ),
@@ -88,7 +87,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     // --- Methods ---
     widget.backend.subscribeMethods(widget.control.id, _handleMethods);
 
-    // --- Safe init ---
+    // --- Init player safely ---
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_disposed) return;
 
@@ -110,37 +109,46 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
 
   // ================= METHODS =================
 
-  Future<dynamic> _handleMethods(String method, Map<String, String> args) async {
+  Future<String?> _handleMethods(
+      String method, Map<String, String> args) async {
     switch (method) {
       case "play":
-        return player.play();
+        await player.play();
+        return null;
 
       case "pause":
-        return player.pause();
+        await player.pause();
+        return null;
 
       case "play_or_pause":
-        return player.playOrPause();
+        await player.playOrPause();
+        return null;
 
       case "stop":
         await player.stop();
-        return player.open(
+        await player.open(
           Playlist(parseVideoMedia(widget.control, "playlist")),
           play: false,
         );
+        return null;
 
       case "seek":
-        return player.seek(Duration(
+        await player.seek(Duration(
           milliseconds: int.tryParse(args["position"] ?? "") ?? 0,
         ));
+        return null;
 
       case "next":
-        return player.next();
+        await player.next();
+        return null;
 
       case "previous":
-        return player.previous();
+        await player.previous();
+        return null;
 
       case "jump_to":
-        return player.jump(parseInt(args["media_index"], 0)!);
+        await player.jump(parseInt(args["media_index"], 0)!);
+        return null;
 
       case "fullscreen":
         final value = args["value"] == "true";
@@ -149,13 +157,9 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
           final state = _videoKey.currentState;
           if (state == null) return;
 
-          if (value) {
-            state.enterFullscreen();
-          } else {
-            state.exitFullscreen();
-          }
+          value ? state.enterFullscreen() : state.exitFullscreen();
         });
-        break;
+        return null;
 
       case "get_duration":
         return player.state.duration.inMilliseconds.toString();
@@ -172,7 +176,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     return null;
   }
 
-  // ================= MPV =================
+  // ================= MPV CONFIG =================
 
   Future<void> _applyMpvProperties() async {
     final raw = widget.control.attrString("configuration");
@@ -264,10 +268,10 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         }
       }
 
+      // --- Fullscreen sync ---
       final fullscreen = widget.control.attrBool("fullscreen", false)!;
       final prevFullscreen = widget.control.state["fullscreen"] ?? false;
 
-      // --- Sync fullscreen ---
       if (fullscreen != prevFullscreen) {
         widget.control.state["fullscreen"] = fullscreen;
 
@@ -298,7 +302,6 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
                 Theme.of(context), widget.control.attrString("fillColor", "")!) ??
             const Color(0xFF000000),
 
-        // --- Fullscreen callbacks ---
         onEnterFullscreen: () async {
           widget.control.state["fullscreen"] = true;
           _trigger("enter_fullscreen", "");
