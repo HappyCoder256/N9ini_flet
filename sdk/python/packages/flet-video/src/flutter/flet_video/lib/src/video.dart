@@ -28,14 +28,16 @@ class VideoControl extends StatefulWidget {
 class _VideoControlState extends State<VideoControl> with FletStoreMixin {
   GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
 
-  late final PlayerConfiguration playerConfig;
-  late final Player player;
-  late final VideoControllerConfiguration videoControllerConfiguration;
-  late final VideoController controller;
+  late PlayerConfiguration playerConfig;
+  late Player player;
+  late VideoControllerConfiguration videoControllerConfiguration;
+  late VideoController controller;
 
   StreamSubscription? _errorSub;
   StreamSubscription? _completedSub;
   StreamSubscription? _playlistSub;
+
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -55,12 +57,16 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     player = Player(configuration: playerConfig);
 
     videoControllerConfiguration = parseControllerConfiguration(
-        widget.control, "configuration", const VideoControllerConfiguration())!;
+        widget.control,
+        "configuration",
+        const VideoControllerConfiguration())!;
 
-    controller = VideoController(player,
-        configuration: videoControllerConfiguration);
+    controller = VideoController(
+      player,
+      configuration: videoControllerConfiguration,
+    );
 
-    // setup stream listeners ONCE here
+    // ✅ stream listeners setup ONCE
     _errorSub = player.stream.error.listen((event) {
       if (widget.control.attrBool("onError", false)!) {
         _onError(event.toString());
@@ -79,7 +85,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
       }
     });
 
-    // setup method subscriptions ONCE here
+    // ✅ method subscriptions setup ONCE
     widget.backend.subscribeMethods(widget.control.id,
         (methodName, args) async {
       switch (methodName) {
@@ -150,12 +156,19 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         case "get_current_position":
           debugPrint("Video.getCurrentPosition($hashCode)");
           return player.state.position.inMilliseconds.toString();
+
+        // ✅ new close/dispose method
+        case "close":
+          debugPrint("Video.close($hashCode)");
+          await _closeAndDispose();
+          break;
       }
       return null;
     });
 
-    // open playlist
+    // ✅ wait for controller ready, apply mpv props, then open
     () async {
+      await controller.waitUntilFirstFrameRendered;
       await _applyMpvProperties();
       await player.open(
         Playlist(parseVideoMedia(widget.control, "playlist")),
@@ -164,15 +177,43 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
     }();
   }
 
-  @override
-  void dispose() {
-    // cancel stream subscriptions
-    _errorSub?.cancel();
-    _completedSub?.cancel();
-    _playlistSub?.cancel();
+  // ✅ close and dispose method
+  Future<void> _closeAndDispose() async {
+    if (_disposed) return;
+    _disposed = true;
+
+    debugPrint("Video._closeAndDispose($hashCode)");
+
+    // stop playback first
+    try {
+      await player.stop();
+    } catch (_) {}
+
+    // cancel all stream subscriptions
+    await _errorSub?.cancel();
+    _errorSub = null;
+    await _completedSub?.cancel();
+    _completedSub = null;
+    await _playlistSub?.cancel();
+    _playlistSub = null;
+
     // unsubscribe methods
     widget.backend.unsubscribeMethods(widget.control.id);
-    player.dispose();
+
+    // dispose player
+    try {
+      await player.dispose();
+    } catch (_) {}
+
+    // trigger event to notify Python side
+    widget.backend.triggerControlEvent(widget.control.id, "close", "");
+
+    debugPrint("Video._closeAndDispose($hashCode) done");
+  }
+
+  @override
+  void dispose() {
+    _closeAndDispose(); // reuse same logic
     super.dispose();
   }
 
@@ -224,6 +265,9 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
   @override
   Widget build(BuildContext context) {
     debugPrint("Video build: ${widget.control.id}");
+
+    // if disposed, return empty container
+    if (_disposed) return const SizedBox.shrink();
 
     FilterQuality filterQuality = parseFilterQuality(
         widget.control.attrString("filterQuality"), FilterQuality.low)!;
@@ -312,6 +356,8 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
 
       // --- Apply property changes ---
       () async {
+        if (_disposed) return;
+
         if (volume != null &&
             volume != prevVolume &&
             volume >= 0 &&
@@ -356,6 +402,7 @@ class _VideoControlState extends State<VideoControl> with FletStoreMixin {
         if (fullscreen != prevFullscreen) {
           widget.control.state["fullscreen"] = fullscreen;
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_disposed) return;
             final videoState = _videoKey.currentState;
             if (videoState == null) return;
             if (fullscreen) {
