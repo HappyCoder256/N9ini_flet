@@ -274,60 +274,67 @@ class NotificationService {
 
   Future<bool?> requestPermissions() async {
     if (!_isInitialized) await initialize();
-
-    // Windows does not require permission
+  
     if (Platform.isWindows) {
       debugPrint('Windows: no permission request needed');
       return true;
     }
-
-    // Android
-    bool? androidResult;
-    try {
-      final androidPlugin = flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation
-              AndroidFlutterLocalNotificationsPlugin>();
-      androidResult = await androidPlugin?.requestNotificationsPermission();
-      debugPrint('Android permissions: $androidResult');
-    } catch (e) {
-      debugPrint('Error requesting Android permissions: $e');
+  
+    if (Platform.isAndroid) {
+      bool? result;
+      try {
+        final AndroidFlutterLocalNotificationsPlugin? androidPlugin =
+            flutterLocalNotificationsPlugin
+                .resolvePlatformSpecificImplementation
+                    AndroidFlutterLocalNotificationsPlugin>();
+        result = await androidPlugin?.requestNotificationsPermission();
+        debugPrint('Android permissions: $result');
+      } catch (e) {
+        debugPrint('Error requesting Android permissions: $e');
+      }
+      return result;
     }
-
-    // iOS
-    bool? iosResult;
-    try {
-      final iosPlugin = flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation
-              IOSFlutterLocalNotificationsPlugin>();
-      iosResult = await iosPlugin?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-      debugPrint('iOS permissions: $iosResult');
-    } catch (e) {
-      debugPrint('Error requesting iOS permissions: $e');
+  
+    if (Platform.isIOS) {
+      bool? result;
+      try {
+        final IOSFlutterLocalNotificationsPlugin? iosPlugin =
+            flutterLocalNotificationsPlugin
+                .resolvePlatformSpecificImplementation
+                    IOSFlutterLocalNotificationsPlugin>();
+        result = await iosPlugin?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        debugPrint('iOS permissions: $result');
+      } catch (e) {
+        debugPrint('Error requesting iOS permissions: $e');
+      }
+      return result;
     }
-
-    // macOS
-    bool? macOSResult;
-    try {
-      final macOSPlugin = flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation
-              MacOSFlutterLocalNotificationsPlugin>();
-      macOSResult = await macOSPlugin?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-      debugPrint('macOS permissions: $macOSResult');
-    } catch (e) {
-      debugPrint('Error requesting macOS permissions: $e');
+  
+    if (Platform.isMacOS) {
+      bool? result;
+      try {
+        final MacOSFlutterLocalNotificationsPlugin? macOSPlugin =
+            flutterLocalNotificationsPlugin
+                .resolvePlatformSpecificImplementation
+                    MacOSFlutterLocalNotificationsPlugin>();
+        result = await macOSPlugin?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        debugPrint('macOS permissions: $result');
+      } catch (e) {
+        debugPrint('Error requesting macOS permissions: $e');
+      }
+      return result;
     }
-
-    return macOSResult ?? iosResult ?? androidResult;
+  
+    return false;
   }
-}
 
 // -----------------------------------------------------------------------
 // Notification action data
