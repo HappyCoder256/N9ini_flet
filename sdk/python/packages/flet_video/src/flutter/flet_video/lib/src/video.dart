@@ -215,7 +215,7 @@ class _VideoControlState extends State<VideoControl> {
     });
   }
 
-  Future<void> _handleInvokeMethod(String method, dynamic args) async {
+  Future<String> _handleInvokeMethod(String method, dynamic args) async {
     switch (method) {
       case "play":
         await player.play();
@@ -266,32 +266,21 @@ class _VideoControlState extends State<VideoControl> {
       //   break;
 
       case "playlist_remove":
-        final index = parseInt(args);
-        if (index != null &&
-            index >= 0 &&
-            index < player.state.playlist.medias.length) {
-          await player.remove(index);
-          _playlist = Playlist([
-            ...player.state.playlist.medias,
-          ]);
-        }
+        debugPrint("Video.remove($hashCode)");
+        await player.remove(parseInt(args["media_index"], 0)!);
         break;
-
       case "is_playing":
-        _trigger("method_result", player.state.playing);
-        break;
-
+        debugPrint("Video.isPlaying($hashCode)");
+        return player.state.playing.toString();
       case "is_completed":
-        _trigger("method_result", player.state.completed);
-        break;
-
+        debugPrint("Video.isCompleted($hashCode)");
+        return player.state.completed.toString();
       case "get_duration":
-        _trigger("method_result", player.state.duration.inMilliseconds);
-        break;
-
+        debugPrint("Video.getDuration($hashCode)");
+        return player.state.duration.inMilliseconds.toString();
       case "get_current_position":
-        _trigger("method_result", player.state.position.inMilliseconds);
-        break;
+        debugPrint("Video.getCurrentPosition($hashCode)");
+        return player.state.position.inMilliseconds.toString();
 
       case "take_screenshot":
         final path = await player.screenshot();
@@ -300,7 +289,9 @@ class _VideoControlState extends State<VideoControl> {
 
       default:
         debugPrint("Unknown video method: $method");
+        return "";
     }
+    return "";
   }
 
   Future<void> _handleEnterFullscreen() async {
