@@ -37,13 +37,13 @@ dependencies:
       url: https://github.com/flet-dev/flet-audio.git
       ref: 0.1.0
       path: src/flutter/flet_audio
-  flet_video:
-    git:
-      url: https://github.com/flet-dev/flet-video.git
-      ref: 0.1.0
-      path: src/flutter/flet_video
   # flet_video:
-  #   path: ../sdk/python/packages/flet-video/src/flutter/flet_video
+  #   git:
+  #     url: https://github.com/flet-dev/flet-video.git
+  #     ref: 0.1.0
+  #     path: src/flutter/flet_video
+  flet_video:
+    path: ../sdk/python/packages/flet_video/src/flutter/flet_video
   flet_lottie:
     git:
       url: https://github.com/flet-dev/flet-lottie.git
