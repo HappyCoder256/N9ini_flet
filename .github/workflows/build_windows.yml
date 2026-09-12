@@ -1,10 +1,10 @@
-name: Build Flet Windows
+name: Build Flet Windows (N9ini Desktop Client)
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - Final_N9ini_Flet
+      - n9ini_desktop_client
 
 jobs:
   build-windows:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: Final_N9ini_Flet
+          ref: n9ini_desktop_client
 
       # 2️⃣ Setup Flutter 3.29.2
       - name: Set up Flutter
