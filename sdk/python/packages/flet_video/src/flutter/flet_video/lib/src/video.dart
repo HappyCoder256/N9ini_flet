@@ -184,6 +184,7 @@ class _VideoControlState extends State<VideoControl> {
   }) async {
     _playlist = playlist;
 
+    final buildContext = context;
     await _applyMpvProperties();
 
     if (_disposed) {
@@ -191,6 +192,27 @@ class _VideoControlState extends State<VideoControl> {
     }
 
     await player.open(playlist, play: play);
+    final rawSubtitleTrack =
+          widget.control.attrString("subtitleTrack");
+
+      if (rawSubtitleTrack != null && rawSubtitleTrack.isNotEmpty) {
+        try {
+          final decodedSubtitleTrack = jsonDecode(rawSubtitleTrack);
+
+          if (decodedSubtitleTrack is Map) {
+            final subtitleTrack = parseSubtitleTrack(
+              decodedSubtitleTrack,
+              buildContext,
+            );
+
+            if (subtitleTrack != null && !_disposed) {
+              await player.setSubtitleTrack(subtitleTrack);
+            }
+          }
+        } catch (e) {
+          debugPrint("Failed to apply subtitleTrack: $e");
+        }
+      }
   }
 
   Future<void> _setup() async {
@@ -487,14 +509,7 @@ class _VideoControlState extends State<VideoControl> {
       "subtitleConfiguration",
     );
 
-    final subtitleTrack = parseSubtitleTrack(
-      widget.control.attrString("subtitleTrack"),
-      context,
-    );
-
-    if (subtitleTrack != null) {
-      unawaited(player.setSubtitleTrack(subtitleTrack));
-    }
+   
 
 
     final showControls =
