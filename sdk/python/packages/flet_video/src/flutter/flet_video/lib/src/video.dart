@@ -65,9 +65,15 @@ class _VideoControlState extends State<VideoControl>
   @override
   void didUpdateWidget(VideoControl oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.control != widget.control) {
-      _teardown();
-      _setup();
+      // Flet may update attributes without replacing the control instance.
+      // Apply the latest properties/playlist asynchronously instead of
+      // destroying and recreating the media player on every update.
+      if (_initialized && !_disposed) {
+        _applyProperties();
+        _updatePlaylist();
+      }
     }
   }
 
@@ -81,6 +87,8 @@ class _VideoControlState extends State<VideoControl>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_disposed || !_initialized) return;
+
     if (state == AppLifecycleState.paused) {
       if (parseBool(
           widget.control.attrString("pause_upon_entering_background_mode"),
@@ -96,7 +104,7 @@ class _VideoControlState extends State<VideoControl>
     }
   }
 
-  void _setup() {
+  Future<void> _setup() async {
     try {
       // Create player
       _player = Player();
@@ -107,10 +115,16 @@ class _VideoControlState extends State<VideoControl>
       // Setup subscriptions
       _setupSubscriptions();
 
-      // Load playlist
-      _updatePlaylist();
+      // Register Flet method handler once.
+      _subscribeMethods();
 
       _initialized = true;
+
+      // Load playlist after the player is initialized.
+      await _updatePlaylist();
+
+      // Apply initial properties once.
+      await _applyProperties();
 
       // Trigger load event
       _trigger("load", true);
@@ -123,6 +137,7 @@ class _VideoControlState extends State<VideoControl>
   void _teardown() {
     try {
       _positionTimer?.cancel();
+      _positionTimer = null;
       _errorSub?.cancel();
       _completedSub?.cancel();
       _playlistSub?.cancel();
@@ -132,6 +147,9 @@ class _VideoControlState extends State<VideoControl>
       _player.dispose();
 
       _initialized = false;
+      _currentPosition = Duration.zero;
+      _totalDuration = Duration.zero;
+      _playlist = null;
     } catch (e) {
       debugPrint("VideoControl teardown error: $e");
     }
@@ -223,16 +241,24 @@ class _VideoControlState extends State<VideoControl>
           return;
         }
 
-        // Optimize: detect if only item was removed
+        // Optimize: detect if only one item was removed.
         if (newPlaylist.length == oldList.length - 1) {
+          int? removedIndex;
+
           for (int i = 0; i < newPlaylist.length; i++) {
             if (!const DeepCollectionEquality()
                 .equals(newPlaylist[i], oldList[i])) {
-              await _player.remove(i);
-              _playlist = newPlaylist;
-              return;
+              removedIndex = i;
+              break;
             }
           }
+
+          // If all remaining items match, the removed item was the last one.
+          removedIndex ??= oldList.length - 1;
+
+          await _player.remove(removedIndex);
+          _playlist = newPlaylist;
+          return;
         }
       }
 
@@ -276,7 +302,9 @@ class _VideoControlState extends State<VideoControl>
         case "seek":
           final value = args;
           if (value is num) {
-            await _player.seek(Duration(milliseconds: value.toInt()));
+            await _player.seek(
+              Duration(milliseconds: value.toInt()),
+            );
           }
           return "true";
 
@@ -292,6 +320,27 @@ class _VideoControlState extends State<VideoControl>
           final index = parseInt(args);
           if (index != null) {
             await _player.jump(index);
+          }
+          return "true";
+
+        case "playlist_remove":
+          final index = parseInt(
+            args is Map ? args["media_index"] : args,
+            0,
+          );
+
+          if (index != null &&
+              index >= 0 &&
+              index < _player.state.playlist.medias.length) {
+            await _player.remove(index);
+
+            if (_playlist is List<Media>) {
+              final updated = List<Media>.from(_playlist as List<Media>);
+              if (index < updated.length) {
+                updated.removeAt(index);
+                _playlist = updated;
+              }
+            }
           }
           return "true";
 
@@ -322,6 +371,13 @@ class _VideoControlState extends State<VideoControl>
       _trigger("error", e.toString());
       return "";
     }
+  }
+
+  void _subscribeMethods() {
+    widget.backend.subscribeMethods(
+      widget.control.id,
+      (method, args) => _handleInvokeMethod(method, args),
+    );
   }
 
   Future<void> _applyProperties() async {
@@ -392,11 +448,6 @@ class _VideoControlState extends State<VideoControl>
         return null;
       },
     );
-
-    if (_initialized) {
-      _applyProperties();
-      _updatePlaylist();
-    }
 
     final width = parseDouble(widget.control.attrString("width"));
     final height = parseDouble(widget.control.attrString("height"));
@@ -492,7 +543,7 @@ class _VideoControlState extends State<VideoControl>
 
 class _FullscreenVideoPage extends StatefulWidget {
   final VideoController controller;
-  final VoidCallback onExit;
+  final Future<void> Function() onExit;
 
   const _FullscreenVideoPage({
     required this.controller,
@@ -529,7 +580,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
-        onTap: widget.onExit,
+        onTap: () {
+          widget.onExit();
+        },
         child: Center(
           child: Video(
             controller: widget.controller,
